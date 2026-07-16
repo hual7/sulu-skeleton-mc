@@ -1,10 +1,16 @@
 FROM php:8.4-apache
 
+# Imagick is installed alongside GD: Sulu prefers it automatically and
+# ImageMagick keeps its memory outside the PHP memory_limit, so large
+# uploads don't exhaust the PHP heap during thumbnail generation.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git unzip \
         libicu-dev libzip-dev libpng-dev libjpeg62-turbo-dev libwebp-dev libfreetype6-dev \
+        libmagickwand-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql intl gd zip exif opcache \
+    && pecl install imagick \
+    && docker-php-ext-enable imagick \
     && a2enmod rewrite headers \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
