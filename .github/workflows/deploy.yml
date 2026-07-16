@@ -10,6 +10,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      # The secrets context is not available in step-level `if`, so mirror
+      # the key into env to make the deploy step conditional on it.
+      BUNNYNET_API_KEY: ${{ secrets.BUNNYNET_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Docker login
@@ -29,7 +33,7 @@ jobs:
       - name: Deploy to Magic Containers
         # Only deploy once the repo is wired up to a Magic Containers app
         # (APP_ID variable + BUNNYNET_API_KEY secret in the repo settings).
-        if: ${{ vars.APP_ID != '' && secrets.BUNNYNET_API_KEY != '' }}
+        if: ${{ vars.APP_ID != '' && env.BUNNYNET_API_KEY != '' }}
         uses: BunnyWay/actions/container-update-image@main
         with:
           app_id: ${{ vars.APP_ID }}
