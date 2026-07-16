@@ -21,4 +21,13 @@
 
     <img src="{{ image.thumbnails['300x'] }}" alt="{{ image.title }}" title="{{ image.description|default(image.title) }}">
     -->
+
+    <format key="400x400">
+        <meta>
+            <title lang="en">400x400</title>
+            <title lang="de">400x400</title>
+        </meta>
+        <scale x="400" y="400"/>
+    </format>
+
 </formats>
