@@ -1,0 +1,16 @@
+.git
+.github
+docs
+.env.local
+.env.local.php
+.env.*.local
+var/
+vendor/
+node_modules/
+public/bundles/
+public/uploads/
+tests/
+.phpunit.cache
+docker-compose.yml
+bunny.json
+README.md
