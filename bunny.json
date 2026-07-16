@@ -1,0 +1,52 @@
+{
+    "id": "sulu-mariadb",
+    "name": "Sulu + MariaDB",
+    "description": "Sulu CMS 3 with MariaDB on Apache, deployed to Magic Containers.",
+    "icon": "code",
+    "containers": [
+        {
+            "name": "app",
+            "imageNamespace": "{{github.repository_owner}}",
+            "imageName": "{{github.repository_name}}",
+            "imageTag": "latest",
+            "endpoints": [
+                {
+                    "displayName": "HTTP",
+                    "type": "CDN",
+                    "containerPort": 80
+                }
+            ],
+            "environment": {
+                "APP_ENV": "prod",
+                "APP_SECRET": "df8ab92c6cdd0776f9717e6c0f3fbb1d",
+                "DATABASE_URL": "mysql://sulu:sulu@127.0.0.1:3306/sulu?serverVersion=11.8.2-MariaDB&charset=utf8mb4",
+                "TRUSTED_PROXIES": "REMOTE_ADDR",
+                "SULU_ADMIN_EMAIL": "admin@example.com",
+                "SULU_ADMIN_USER": "admin",
+                "SULU_ADMIN_PASSWORD": "admin"
+            },
+            "volumes": [
+                {
+                    "mountPath": "/var/www/html/var"
+                }
+            ]
+        },
+        {
+            "name": "db",
+            "imageNamespace": "library",
+            "imageName": "mariadb",
+            "imageTag": "11",
+            "environment": {
+                "MARIADB_DATABASE": "sulu",
+                "MARIADB_USER": "sulu",
+                "MARIADB_PASSWORD": "sulu",
+                "MARIADB_ROOT_PASSWORD": "root"
+            },
+            "volumes": [
+                {
+                    "mountPath": "/var/lib/mysql"
+                }
+            ]
+        }
+    ]
+}
