@@ -31,7 +31,8 @@ RUN composer dump-autoload --optimize --no-dev \
     && chown -R www-data:www-data var public/uploads
 
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY docker/clear-caches.sh /usr/local/bin/clear-caches
+RUN chmod +x /entrypoint.sh /usr/local/bin/clear-caches
 
 EXPOSE 80
 
