@@ -30,7 +30,7 @@
         "php": "^8.2",
         "ext-ctype": "*",
         "ext-iconv": "*",
-        "alengo/sulu-bunny-cdn-bundle": "^0.1",
+        "alengo/sulu-bunny-cdn-bundle": "^0.1.0",
         "cmsig/seal-loupe-adapter": "^0.12.2",
         "doctrine/doctrine-bundle": "^2.13",
         "doctrine/doctrine-fixtures-bundle": "^3.6 || ^4.0",

@@ -4,8 +4,68 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5f2fb2aafc407a145e953a61c1177aa8",
+    "content-hash": "564b7369f5045261290dcec637b26102",
     "packages": [
+        {
+            "name": "alengo/sulu-bunny-cdn-bundle",
+            "version": "0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/alengodev/SuluBunnyCdnBundle.git",
+                "reference": "a92d0d1f140c30bbc1c53970bafb2e024c3a8737"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/alengodev/SuluBunnyCdnBundle/zipball/a92d0d1f140c30bbc1c53970bafb2e024c3a8737",
+                "reference": "a92d0d1f140c30bbc1c53970bafb2e024c3a8737",
+                "shasum": ""
+            },
+            "require": {
+                "friendsofsymfony/http-cache": "^3.0",
+                "friendsofsymfony/http-cache-bundle": "^3.0",
+                "php": "^8.2",
+                "symfony/config": "^7.2",
+                "symfony/dependency-injection": "^7.2",
+                "symfony/event-dispatcher": "^7.2",
+                "symfony/http-foundation": "^7.2",
+                "symfony/http-kernel": "^7.2"
+            },
+            "require-dev": {
+                "php-cs-fixer/shim": "^3.93",
+                "rector/rector": "^2.3"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Alengo\\SuluBunnyCdnBundle\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Alexander Huber-De Monte"
+                }
+            ],
+            "description": "bunny.net CDN integration for Sulu/Symfony: tag-based edge cache invalidation (CDN-Tag header + wildcard purge) wired into FOS HttpCache.",
+            "homepage": "https://github.com/alengodev/SuluBunnyCdnBundle",
+            "keywords": [
+                "bunny",
+                "cache-invalidation",
+                "cdn",
+                "fos",
+                "http-cache",
+                "sulu",
+                "symfony"
+            ],
+            "support": {
+                "issues": "https://github.com/alengodev/SuluBunnyCdnBundle/issues",
+                "source": "https://github.com/alengodev/SuluBunnyCdnBundle/tree/0.1"
+            },
+            "time": "2026-07-09T20:50:20+00:00"
+        },
         {
             "name": "clue/stream-filter",
             "version": "v1.7.0",
