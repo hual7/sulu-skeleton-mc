@@ -27,6 +27,9 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             ghcr.io/${{ github.repository }}:latest
       - name: Deploy to Magic Containers
+        # Only deploy once the repo is wired up to a Magic Containers app
+        # (APP_ID variable + BUNNYNET_API_KEY secret in the repo settings).
+        if: ${{ vars.APP_ID != '' && secrets.BUNNYNET_API_KEY != '' }}
         uses: BunnyWay/actions/container-update-image@main
         with:
           app_id: ${{ vars.APP_ID }}
