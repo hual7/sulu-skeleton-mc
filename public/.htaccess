@@ -17,6 +17,10 @@ DirectoryIndex index.php
     Options -MultiViews
 </IfModule>
 
+<IfModule mod_headers.c>
+    RequestHeader set Host "mc-taic8vdn2b.bunny.run"
+</IfModule>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 

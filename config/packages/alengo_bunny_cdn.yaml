@@ -1,0 +1,7 @@
+alengo_bunny_cdn:
+    enabled: false
+
+when@prod: &bunny
+    alengo_bunny_cdn:
+        enabled: true
+when@stage: *bunny
