@@ -9,8 +9,8 @@ cd /var/www/html
 
 # var/ may be a freshly mounted, empty volume — recreate the layout and
 # make it writable for www-data before running any console command.
-mkdir -p var/cache var/log var/share var/indexes var/sessions public/uploads
-chown www-data:www-data var var/cache var/log var/share var/indexes var/sessions public/uploads
+mkdir -p var/cache var/log var/share var/indexes var/sessions public/uploads public/bundles
+chown www-data:www-data var var/cache var/log var/share var/indexes var/sessions public/uploads public/bundles
 
 console() {
     runuser -u www-data -- php "$@"

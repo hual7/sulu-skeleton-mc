@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:80"
+    environment:
+      - APP_ENV=prod
+      - APP_SECRET=df8ab92c6cdd0776f9717e6c0f3fbb1d
+      - DATABASE_URL=mysql://sulu:sulu@db:3306/sulu?serverVersion=11.8.2-MariaDB&charset=utf8mb4
+      - SULU_ADMIN_EMAIL=admin@example.com
+      - DEFAULT_URI=http://localhost:8000
+    volumes:
+      - appvar:/var/www/html/var
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_DATABASE: sulu
+      MARIADB_USER: sulu
+      MARIADB_PASSWORD: sulu
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  appvar:
+  dbdata:

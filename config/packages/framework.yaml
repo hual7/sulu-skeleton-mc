@@ -3,6 +3,10 @@ framework:
     secret: '%env(APP_SECRET)%'
     http_method_override: true # enabled also in the index.php
 
+    # Behind the Bunny CDN / a reverse proxy: trust the immediate peer so
+    # X-Forwarded-Proto is honored and generated URLs use https.
+    trusted_proxies: '%env(default::TRUSTED_PROXIES)%'
+
     # Enables session support. Note that the session will ONLY be started if you read or write from it.
     # Remove or comment this section to explicitly disable session support.
     session:
