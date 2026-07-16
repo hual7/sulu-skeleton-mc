@@ -24,6 +24,23 @@ class Kernel extends SuluKernel implements HttpCacheProvider
 {
     private ?HttpKernelInterface $httpCache = null;
 
+    /**
+     * Allows moving the cache off the project dir via APP_CACHE_DIR, e.g. to
+     * keep it out of a persistent volume mounted at var/ (the cache is
+     * per-image-build and must not survive deploys). Preserves the Sulu
+     * layout of one cache dir per context (admin/website/preview).
+     */
+    public function getCacheDir(): string
+    {
+        $dir = $_SERVER['APP_CACHE_DIR'] ?? $_ENV['APP_CACHE_DIR'] ?? (\getenv('APP_CACHE_DIR') ?: null);
+
+        if (\is_string($dir) && '' !== $dir) {
+            return $dir . \DIRECTORY_SEPARATOR . $this->getContext() . \DIRECTORY_SEPARATOR . $this->environment;
+        }
+
+        return parent::getCacheDir();
+    }
+
     protected function configureContainer(ContainerBuilder $container, LoaderInterface $loader): void
     {
         $container->setParameter('container.dumper.inline_class_loader', true);

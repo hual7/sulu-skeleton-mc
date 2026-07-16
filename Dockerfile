@@ -13,6 +13,10 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/app.ini
 
+# Keep the Symfony cache outside of /var/www/html/var so a persistent
+# volume mounted there never carries stale cache across deploys.
+ENV APP_CACHE_DIR=/var/cache/sulu
+
 WORKDIR /var/www/html
 
 COPY composer.json composer.lock symfony.lock ./

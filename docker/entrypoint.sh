@@ -7,10 +7,20 @@ cd /var/www/html
 : "${SULU_ADMIN_PASSWORD:=admin}"
 : "${SULU_ADMIN_EMAIL:=admin@example.com}"
 
+: "${APP_CACHE_DIR:=/var/cache/sulu}"
+export APP_CACHE_DIR
+
+# The persistent volume (mounted at var/) only holds media originals,
+# the search index and logs. The Symfony cache lives in APP_CACHE_DIR
+# outside the volume — it is per-image-build and must not survive
+# deploys. Remove stale cache an older image may have left on the
+# volume; leftover root-owned files there would break cache:clear.
+rm -rf var/cache
+
 # var/ may be a freshly mounted, empty volume — recreate the layout and
 # make it writable for www-data before running any console command.
-mkdir -p var/cache var/log var/share var/indexes var/sessions public/uploads public/bundles
-chown www-data:www-data var var/cache var/log var/share var/indexes var/sessions public/uploads public/bundles
+mkdir -p "$APP_CACHE_DIR" var/log var/share var/indexes var/sessions public/uploads public/bundles
+chown www-data:www-data "$APP_CACHE_DIR" var var/log var/share var/indexes var/sessions public/uploads public/bundles
 
 console() {
     runuser -u www-data -- php "$@"
