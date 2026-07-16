@@ -3,5 +3,9 @@
 {% block content %}
     <h1>{{ content.title }}</h1>
 
+	{% set image = content.image %}
+	<img src="{{ image.thumbnails['400x400'] }}" alt="{{ image.description|default(image.title) }}">
+
     {{ content.article|raw }}
+
 {% endblock %}

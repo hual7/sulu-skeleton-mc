@@ -36,6 +36,12 @@
             <tag name="sulu.rlp"/>
         </property>
 
+        <property name="image" type="single_media_selection">
+            <meta>
+                <title lang="en">Image</title>
+            </meta>
+        </property>
+
         <property name="article" type="text_editor">
             <meta>
                 <title lang="en">Article</title>
