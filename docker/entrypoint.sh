@@ -10,6 +10,13 @@ cd /var/www/html
 : "${APP_CACHE_DIR:=/var/cache/sulu}"
 export APP_CACHE_DIR
 
+# Some volume backends (e.g. Magic Containers) force file ownership to
+# root and silently ignore chown, so www-data can only write where the
+# permission bits allow it. Make everything group/world-writable and
+# keep it that way for files created later by console commands and
+# Apache. Acceptable tradeoff inside a single-app container.
+umask 000
+
 # The persistent volume (mounted at var/) only holds media originals,
 # the search index and logs. The Symfony cache lives in APP_CACHE_DIR
 # outside the volume — it is per-image-build and must not survive
@@ -19,8 +26,11 @@ rm -rf var/cache
 
 # var/ may be a freshly mounted, empty volume — recreate the layout and
 # make it writable for www-data before running any console command.
-mkdir -p "$APP_CACHE_DIR" var/log var/share var/indexes var/sessions public/uploads public/bundles
-chown www-data:www-data "$APP_CACHE_DIR" var var/log var/share var/indexes var/sessions public/uploads public/bundles
+# chown covers volume backends with working ownership; chmod covers the
+# ones that force ownership to root (see umask note above).
+mkdir -p "$APP_CACHE_DIR" var/log var/share var/indexes var/sessions var/storage public/uploads public/bundles
+chown www-data:www-data "$APP_CACHE_DIR" var var/log var/share var/indexes var/sessions var/storage public/uploads public/bundles || true
+chmod -R a+rwX "$APP_CACHE_DIR" var public/uploads public/bundles
 
 console() {
     runuser -u www-data -- php "$@"
