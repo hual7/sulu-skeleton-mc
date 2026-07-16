@@ -59,6 +59,16 @@ curl https://mc-xxx.bunny.run
 
 The Sulu admin is available at `https://mc-xxx.bunny.run/admin`.
 
+## Using a single shared volume
+
+If you can only attach one volume to the app, share it between both containers — but each container must stay inside its own subdirectory (two processes writing to the volume root will corrupt each other):
+
+1. Mount the shared volume at `/data` in **both** containers.
+2. **app** container: set the environment variable `APP_DATA_DIR=/data/app`. The entrypoint then symlinks `var/` into that subdirectory (media, search index, logs).
+3. **db** container: set the startup command to `docker-entrypoint.sh mariadbd --datadir=/data/mysql` so MariaDB initializes and keeps its data in its own subdirectory.
+
+MariaDB only initializes an empty data directory — once set up, deploys never touch it. The same applies to the Sulu setup: `sulu:build prod` and the admin user creation only run when the database is empty, never on later deploys or restarts.
+
 ## Continuous deployment
 
 The workflow automatically deploys to Magic Containers on every push to `main`. Configure the following in your repository settings:

@@ -24,6 +24,22 @@ umask 000
 # volume; leftover root-owned files there would break cache:clear.
 rm -rf var/cache
 
+# Shared-volume mode: when one volume is shared between app and db
+# (mounted e.g. at /data in both), each container must stay inside its
+# own subdirectory. Set APP_DATA_DIR (e.g. /data/app) and var/ becomes
+# a symlink into it; the db container gets its own subdir via
+# --datadir (see README). Not needed when a dedicated volume is
+# mounted directly at /var/www/html/var.
+if [ -n "${APP_DATA_DIR:-}" ] && [ ! -L var ]; then
+    if mountpoint -q var; then
+        echo "WARNING: APP_DATA_DIR is set but a volume is mounted at var/ — ignoring APP_DATA_DIR." >&2
+    else
+        mkdir -p "$APP_DATA_DIR"
+        rm -rf var
+        ln -s "$APP_DATA_DIR" var
+    fi
+fi
+
 # var/ may be a freshly mounted, empty volume — recreate the layout and
 # make it writable for www-data before running any console command.
 # chown covers volume backends with working ownership; chmod covers the
