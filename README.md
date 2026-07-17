@@ -107,3 +107,40 @@ The workflow automatically deploys to Magic Containers on every push to `main`. 
 - **`TRUSTED_PROXIES=REMOTE_ADDR`** - makes Symfony trust the Bunny edge proxy so `X-Forwarded-Proto` is honored and generated URLs use `https`.
 - **Set the Bunny CDN credentials before the first start** - The `SuluBunnyCdnBundle` is enabled in `prod` and purges the CDN cache whenever content changes. `BUNNY_API_KEY` must be the **account** API key (Account → API Key, not a pull-zone key), `BUNNY_PULL_ZONE_ID` the numeric zone id, `BUNNY_SITE_BASE_URL` the public site URL. With missing or wrong credentials the purge request fails with `401 Unauthorized` — the very first container start then aborts mid-setup (it recovers on restart, but content edits keep logging errors).
 - **Change the defaults before going to production** - Set your own `APP_SECRET`, `SULU_ADMIN_PASSWORD`, and database passwords (in `bunny.json` or as environment variables in the Magic Containers dashboard).
+
+## Backup (Bunny Storage)
+
+Optional one-way backup of the database and media to a Bunny Storage zone via
+rclone. Disabled by default; enable it by setting env vars on the `app`
+container (Magic Containers dashboard or `bunny.json`):
+
+| Variable | Purpose |
+|---|---|
+| `BACKUP_ENABLED` | `true` turns the backup on |
+| `BACKUP_BEFORE_MIGRATE` | full backup before every migration (default `true`) |
+| `BACKUP_SCHEDULE` | cron expression for the periodic run (default `0 3 * * *`, container time / UTC) |
+| `BACKUP_RETENTION` | number of DB dumps to keep (default `7`) |
+| `BACKUP_KEEP_DELETED` | keep deleted/overwritten media under `_deleted/` (default `true`) |
+| `BACKUP_BUCKET` | Bunny Storage zone / bucket name |
+| `RCLONE_CONFIG_BUNNY_TYPE` | `s3` (default) or `sftp` |
+| `RCLONE_CONFIG_BUNNY_PROVIDER` | `Other` for Bunny S3 |
+| `RCLONE_CONFIG_BUNNY_ENDPOINT` | `https://<region>-s3.storage.bunnycdn.com` |
+| `RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID` | storage zone name |
+| `RCLONE_CONFIG_BUNNY_SECRET_ACCESS_KEY` | storage password |
+
+What is backed up: the MariaDB database (`db/sulu-<ts>.sql.gz`), media originals
+(`var/storage` → `storage/`) and generated image formats (`public/uploads` →
+`uploads/`). The Loupe search index (`var/indexes`) is not backed up — it is
+rebuilt from the database and media.
+
+Bunny's S3-compatible API is currently in closed preview and must be enabled on
+the storage zone. Without S3 access, set `RCLONE_CONFIG_BUNNY_TYPE=sftp` and the
+matching SFTP host/user/key vars instead — the backup logic is unchanged.
+
+### Restore
+
+1. Media: `rclone sync bunny:<bucket>/storage "$APP_DATA_DIR/storage"` and the
+   same for `uploads`.
+2. Database: `rclone copy bunny:<bucket>/db/sulu-<ts>.sql.gz .` then
+   `gunzip -c sulu-<ts>.sql.gz | mariadb -h 127.0.0.1 -u sulu -psulu sulu`.
+3. Rebuild the search index: `bin/adminconsole cmsig:seal:reindex`.
