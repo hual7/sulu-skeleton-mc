@@ -139,7 +139,7 @@ Kurzer Abschnitt: Backup aktivieren (Env-Vars), Schedule, Restore-Prozedur.
    `.../uploads`.
 2. DB: `rclone copy bunny:<bucket>/db/sulu-<ts>.sql.gz .` →
    `gunzip -c ... | mariadb -h 127.0.0.1 -u sulu -p sulu`.
-3. Suchindex neu aufbauen: `bin/adminconsole massive:search:index` bzw.
+3. Suchindex neu aufbauen: `bin/adminconsole cmsig:seal:reindex` bzw.
    Loupe-Reindex-Command.
 
 ## Testkriterien
