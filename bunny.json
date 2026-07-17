@@ -27,7 +27,18 @@
                 "BUNNY_SITE_BASE_URL": "",
                 "SULU_ADMIN_EMAIL": "admin@example.com",
                 "SULU_ADMIN_USER": "admin",
-                "SULU_ADMIN_PASSWORD": "admin"
+                "SULU_ADMIN_PASSWORD": "admin",
+                "BACKUP_ENABLED": "",
+                "BACKUP_BEFORE_MIGRATE": "true",
+                "BACKUP_SCHEDULE": "0 3 * * *",
+                "BACKUP_RETENTION": "7",
+                "BACKUP_KEEP_DELETED": "true",
+                "BACKUP_BUCKET": "",
+                "RCLONE_CONFIG_BUNNY_TYPE": "s3",
+                "RCLONE_CONFIG_BUNNY_PROVIDER": "Other",
+                "RCLONE_CONFIG_BUNNY_ENDPOINT": "",
+                "RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID": "",
+                "RCLONE_CONFIG_BUNNY_SECRET_ACCESS_KEY": ""
             },
             "volumes": [
                 {
