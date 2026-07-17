@@ -74,10 +74,14 @@ console() {
 }
 
 echo "Preparing application (cache, assets, media dirs)..."
-console bin/adminconsole cache:clear
-console bin/websiteconsole cache:clear
-console bin/console assets:install public
-console bin/adminconsole sulu:media:init
+console composer up --no-dev
+console bin/console doctrine:migrations:migrate
+console bin/console do:sch:up --force --dump-sql
+
+#console bin/adminconsole cache:clear
+#console bin/websiteconsole cache:clear
+#console bin/console assets:install public
+#console bin/adminconsole sulu:media:init
 
 echo "Waiting for database..."
 i=0
