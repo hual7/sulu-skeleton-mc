@@ -8,21 +8,30 @@ set -u
 log() { echo "[backup $(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 fail() { log "ERROR: $*"; }
 
+: "${BACKUP_ENABLED:=}"
+if [ "$BACKUP_ENABLED" != "true" ]; then
+    log "BACKUP_ENABLED is not 'true', skipping."
+    exit 0
+fi
+
 # Serialize runs so a long media sync never overlaps the next cron tick or a
-# concurrent pre-deploy run. Non-blocking: skip if another run holds the lock.
-if command -v flock >/dev/null 2>&1; then
-    exec 9>/var/lock/backup.lock
+# concurrent pre-deploy run. Best-effort: probe writability in a subshell
+# first, because a failed redirection on `exec` (a special builtin) would
+# terminate the script outright — the backup must run even if the lock dir
+# is missing or read-only.
+LOCK=/var/lock/backup.lock
+if command -v flock >/dev/null 2>&1 && ( : >>"$LOCK" ) 2>/dev/null; then
+    exec 9>>"$LOCK"
     if ! flock -n 9; then
         log "another backup run is in progress, skipping."
         exit 0
     fi
 fi
 
-: "${BACKUP_ENABLED:=}"
-if [ "$BACKUP_ENABLED" != "true" ]; then
-    log "BACKUP_ENABLED is not 'true', skipping."
-    exit 0
-fi
+# The media paths below are relative to the app root; cron runs the job from
+# a different cwd, so anchor here explicitly.
+APP_ROOT="${APP_ROOT:-/var/www/html}"
+cd "$APP_ROOT" || { fail "cannot enter app root '$APP_ROOT', aborting backup."; exit 0; }
 
 : "${BACKUP_BUCKET:=}"
 : "${BACKUP_RETENTION:=7}"
@@ -49,11 +58,16 @@ db_dump() {
     ts=$(date '+%Y%m%d-%H%M%S')
     tmpdir="$APP_CACHE_DIR/backup"
     mkdir -p "$tmpdir"
-    dump="$tmpdir/sulu-$ts.sql.gz"
+    raw="$tmpdir/sulu-$ts.sql"
+    dump="$raw.gz"
 
     log "dumping database '$db' from $host:$port ..."
+    # Dump to an uncompressed intermediate first: a shell pipeline reports
+    # only the last command's status, so `mariadb-dump | gzip` would mask a
+    # failed dump as success. Check mariadb-dump on its own.
     if MYSQL_PWD="$pass" mariadb-dump --single-transaction --quick --no-tablespaces \
-        -h "$host" -P "$port" -u "$user" "$db" | gzip -c > "$dump"; then
+        -h "$host" -P "$port" -u "$user" "$db" > "$raw"; then
+        gzip -f "$raw"
         if rclone copy "$dump" "$REMOTE/db/"; then
             log "database dump uploaded: db/$(basename "$dump")"
         else
@@ -62,7 +76,7 @@ db_dump() {
     else
         fail "mariadb-dump failed."
     fi
-    rm -f "$dump"
+    rm -f "$raw" "$dump"
 }
 
 db_retention() {
