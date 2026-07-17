@@ -6,10 +6,13 @@ FROM php:8.4-fpm-alpine
 # extensions; scanelf collects their runtime libraries so the -dev
 # packages can be dropped again.
 RUN apk add --no-cache apache2 apache2-proxy git unzip su-exec \
+        imagemagick imagemagick-jpeg imagemagick-webp imagemagick-heic imagemagick-svg \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
-        icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev \
+        icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev imagemagick-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql intl gd zip exif opcache \
+    && printf '\n' | pecl install imagick \
+    && docker-php-ext-enable imagick \
     && runDeps="$(scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
         | tr ',' '\n' | sort -u | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }')" \
     && apk add --no-cache --virtual .run-deps $runDeps \
@@ -46,5 +49,10 @@ COPY docker/clear-caches.sh /usr/local/bin/clear-caches
 RUN chmod +x /entrypoint.sh /usr/local/bin/clear-caches
 
 EXPOSE 80
+
+# The php:fpm base image sets STOPSIGNAL SIGQUIT, which the entrypoint
+# shell would ignore — docker stop would hang and SIGKILL after the
+# grace period. TERM is handled by the entrypoint's supervise loop.
+STOPSIGNAL SIGTERM
 
 CMD ["/entrypoint.sh"]

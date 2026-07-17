@@ -30,6 +30,8 @@
         "php": "^8.2",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "ext-imagick": "*",
+        "ext-sodium": "*",
         "alengo/sulu-bunny-cdn-bundle": "^0.1.0",
         "cmsig/seal-loupe-adapter": "^0.12.2",
         "doctrine/doctrine-bundle": "^2.13",

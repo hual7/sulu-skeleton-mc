@@ -107,8 +107,31 @@ if ! console bin/adminconsole doctrine:query:sql "SELECT username FROM se_users 
         "${SULU_ADMIN_USER}" Admin Sulu "${SULU_ADMIN_EMAIL}" en Admin "${SULU_ADMIN_PASSWORD}"
 fi
 
-# PHP-FPM daemonizes into the background (-D overrides the base
-# image's daemonize=no), then Apache takes over as PID 1.
+# Apache only proxies to PHP-FPM — if FPM died, Apache would keep
+# serving 503s while the container looks healthy from the outside.
+# Supervise both as children and exit as soon as either one dies, so
+# Magic Containers restarts the whole container instead.
 mkdir -p /run/apache2
-php-fpm -D
-exec httpd -DFOREGROUND
+php-fpm -F &
+fpm_pid=$!
+httpd -DFOREGROUND &
+httpd_pid=$!
+
+stopping=0
+trap 'stopping=1; kill -TERM "$fpm_pid" "$httpd_pid" 2>/dev/null || true' TERM INT QUIT
+
+while kill -0 "$fpm_pid" 2>/dev/null && kill -0 "$httpd_pid" 2>/dev/null; do
+    # Interruptible sleep: wait on a background sleep so TERM/INT are
+    # handled immediately instead of after the full interval.
+    sleep 5 &
+    wait $! || true
+done
+
+kill -TERM "$fpm_pid" "$httpd_pid" 2>/dev/null || true
+wait || true
+
+if [ "$stopping" = 1 ]; then
+    exit 0
+fi
+echo "ERROR: php-fpm or httpd exited unexpectedly, stopping container." >&2
+exit 1

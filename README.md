@@ -42,11 +42,32 @@ Go to your GitHub profile > **Packages** > select the package > **Package settin
    - **Image**: `ghcr.io/<your-username>/<your-repo>:latest`
    - Add an **Endpoint** on port `80`
    - Add a **Volume** mounted at `/data` (persists media originals, the search index and generated image formats)
-   - Set the environment variables (see `bunny.json`): `APP_DATA_DIR=/data`, `APP_ENV`, `APP_SECRET`, `DATABASE_URL`, `TRUSTED_PROXIES`, `SULU_ADMIN_EMAIL`, `SULU_ADMIN_USER`, `SULU_ADMIN_PASSWORD`, and for the CDN cache invalidation `BUNNY_API_KEY`, `BUNNY_PULL_ZONE_ID`, `BUNNY_SITE_BASE_URL`
+   - Set the environment variables — paste this into the **Raw editor** and fill in the `BUNNY_*` values (see the note on CDN credentials below):
+
+     ```env
+     APP_ENV=prod
+     APP_SECRET=df8ab92c6cdd0776f9717e6c0f3fbb1d
+     DATABASE_URL=mysql://sulu:sulu@127.0.0.1:3306/sulu?serverVersion=10.11.14-MariaDB&charset=utf8mb4
+     TRUSTED_PROXIES=REMOTE_ADDR
+     APP_DATA_DIR=/data
+     BUNNY_API_KEY=
+     BUNNY_PULL_ZONE_ID=
+     BUNNY_SITE_BASE_URL=
+     SULU_ADMIN_EMAIL=admin@example.com
+     SULU_ADMIN_USER=admin
+     SULU_ADMIN_PASSWORD=admin
+     ```
 4. Add the **db** container:
    - **Image**: `mariadb:10.11.14`
-   - Set the environment variables (`MARIADB_DATABASE`, `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_ROOT_PASSWORD`)
    - Add a **Volume** mounted at `/var/lib/mysql`
+   - Set the environment variables (Raw editor):
+
+     ```env
+     MARIADB_DATABASE=sulu
+     MARIADB_USER=sulu
+     MARIADB_PASSWORD=sulu
+     MARIADB_ROOT_PASSWORD=root
+     ```
 5. Confirm and deploy.
 
 ### 4. Test it

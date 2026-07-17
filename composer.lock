@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "564b7369f5045261290dcec637b26102",
+    "content-hash": "38d963dacbe0a314cf7cc1b6130d3b83",
     "packages": [
         {
             "name": "alengo/sulu-bunny-cdn-bundle",
@@ -14822,7 +14822,9 @@
     "platform": {
         "php": "^8.2",
         "ext-ctype": "*",
-        "ext-iconv": "*"
+        "ext-iconv": "*",
+        "ext-imagick": "*",
+        "ext-sodium": "*"
     },
     "platform-dev": {},
     "plugin-api-version": "2.9.0"
