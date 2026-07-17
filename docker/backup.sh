@@ -40,6 +40,13 @@ cd "$APP_ROOT" || { fail "cannot enter app root '$APP_ROOT', aborting backup."; 
 : "${DATABASE_URL:=}"
 REMOTE="bunny:${BACKUP_BUCKET}"
 
+# Bound every rclone call so a slow or unreachable remote can't stall the
+# pre-deploy backup (which blocks container start) for minutes on rclone's
+# default retries. Applies to cron runs too.
+rc() {
+    rclone --contimeout 30s --timeout 5m --retries 1 --low-level-retries 3 "$@"
+}
+
 db_dump() {
     # Parse DATABASE_URL: mysql://user:pass@host:port/dbname?params
     rest=${DATABASE_URL#*://}
@@ -68,7 +75,7 @@ db_dump() {
     if MYSQL_PWD="$pass" mariadb-dump --single-transaction --quick --no-tablespaces \
         -h "$host" -P "$port" -u "$user" "$db" > "$raw"; then
         gzip -f "$raw"
-        if rclone copy "$dump" "$REMOTE/db/"; then
+        if rc copy "$dump" "$REMOTE/db/"; then
             log "database dump uploaded: db/$(basename "$dump")"
         else
             fail "rclone copy of database dump failed."
@@ -80,14 +87,14 @@ db_dump() {
 }
 
 db_retention() {
-    files=$(rclone lsf "$REMOTE/db/" 2>/dev/null | grep '^sulu-.*\.sql\.gz$' | sort)
+    files=$(rc lsf "$REMOTE/db/" 2>/dev/null | grep '^sulu-.*\.sql\.gz$' | sort)
     total=$(printf '%s\n' "$files" | grep -c . || true)
     if [ "$total" -gt "$BACKUP_RETENTION" ]; then
         remove=$((total - BACKUP_RETENTION))
         printf '%s\n' "$files" | head -n "$remove" | while IFS= read -r f; do
             [ -n "$f" ] || continue
             log "pruning old dump: db/$f"
-            rclone deletefile "$REMOTE/db/$f" || fail "could not prune db/$f"
+            rc deletefile "$REMOTE/db/$f" || fail "could not prune db/$f"
         done
     fi
 }
@@ -103,7 +110,7 @@ media_sync() {
             set -- "$@" --backup-dir "$REMOTE/_deleted/$ts/$dst"
         fi
         log "syncing $src -> $dst ..."
-        if rclone "$@"; then
+        if rc "$@"; then
             log "synced $dst."
         else
             fail "rclone sync of $src failed."

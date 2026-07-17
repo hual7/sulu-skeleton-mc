@@ -14,8 +14,8 @@ export CALLS
 cat > "$bindir/rclone" <<'EOF'
 #!/bin/sh
 echo "rclone $*" >> "$CALLS"
-case "$1 $2" in
-  "lsf "*/db/*|"lsf "*db/) printf 'sulu-2026010%s-000000.sql.gz\n' 1 2 3 4 5 6 7 8 9 ;;
+case " $* " in
+  *" lsf "*db/*) printf 'sulu-2026010%s-000000.sql.gz\n' 1 2 3 4 5 6 7 8 9 ;;
 esac
 exit 0
 EOF
@@ -66,7 +66,8 @@ assert_grep "PWD=s3cr3t"
 assert_grep "-h db-host"
 assert_grep "-P 3307"
 assert_grep "suludb"
-assert_grep "rclone copy"
+assert_grep "copy.*bunny:mybucket/db/"
+assert_grep "contimeout 30s"
 assert_grep "bunny:mybucket/db/"
 assert_grep "sync -L"
 assert_grep "bunny:mybucket/storage"
@@ -75,9 +76,9 @@ assert_grep "backup-dir bunny:mybucket/_deleted/"
 echo "PASS: enabled -> full backup call sequence, exit 0"
 
 # Case C: retention -> 9 remote dumps, keep 7 -> prune 2 oldest
-grep -q "rclone deletefile bunny:mybucket/db/sulu-20260101-000000.sql.gz" "$CALLS" \
+grep -q "deletefile bunny:mybucket/db/sulu-20260101-000000.sql.gz" "$CALLS" \
   || fail "expected pruning of oldest dump"
-grep -q "rclone deletefile bunny:mybucket/db/sulu-20260102-000000.sql.gz" "$CALLS" \
+grep -q "deletefile bunny:mybucket/db/sulu-20260102-000000.sql.gz" "$CALLS" \
   || fail "expected pruning of 2nd-oldest dump"
 assert_absent "deletefile bunny:mybucket/db/sulu-20260103-000000.sql.gz"
 echo "PASS: retention prunes oldest beyond BACKUP_RETENTION"
@@ -95,7 +96,7 @@ export STUB_MARIADB_FAIL=1
 run
 [ "$RC" -eq 0 ] || fail "dump-failure path must still exit 0 (got $RC)"
 assert_grep "mariadb-dump"
-assert_absent "rclone copy"
+assert_absent "copy bunny:mybucket/db/"
 assert_out "mariadb-dump failed"
 unset STUB_MARIADB_FAIL
 echo "PASS: dump failure -> exit 0, logged, no upload"

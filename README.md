@@ -137,6 +137,11 @@ Bunny's S3-compatible API is currently in closed preview and must be enabled on
 the storage zone. Without S3 access, set `RCLONE_CONFIG_BUNNY_TYPE=sftp` and the
 matching SFTP host/user/key vars instead — the backup logic is unchanged.
 
+With `BACKUP_KEEP_DELETED=true` (the default), media that is deleted or
+overwritten locally is preserved under `_deleted/<timestamp>/` on the storage
+zone. This prefix is **not** pruned automatically and will grow over time —
+prune it periodically, or set `BACKUP_KEEP_DELETED=false` to disable versioning.
+
 ### Restore
 
 1. Media: `rclone sync bunny:<bucket>/storage "$APP_DATA_DIR/storage"` and the
