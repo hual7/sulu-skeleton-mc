@@ -128,6 +128,28 @@ container (Magic Containers dashboard or `bunny.json`):
 | `RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID` | storage zone name |
 | `RCLONE_CONFIG_BUNNY_SECRET_ACCESS_KEY` | storage password |
 
+Ready-to-paste block for the Magic Containers raw env editor — replace the four
+`<…>` placeholders (`BACKUP_BUCKET` and `RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID` are
+both the storage zone name; `<region>` is the zone's region code, e.g. `de`,
+`ny`; the secret is the zone password from Bunny → the zone → FTP & API Access):
+
+```dotenv
+BACKUP_ENABLED=true
+BACKUP_BEFORE_MIGRATE=true
+BACKUP_SCHEDULE=0 3 * * *
+BACKUP_RETENTION=7
+BACKUP_KEEP_DELETED=true
+BACKUP_BUCKET=<storage-zone-name>
+RCLONE_CONFIG_BUNNY_TYPE=s3
+RCLONE_CONFIG_BUNNY_PROVIDER=Other
+RCLONE_CONFIG_BUNNY_ENDPOINT=https://<region>-s3.storage.bunnycdn.com
+RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID=<storage-zone-name>
+RCLONE_CONFIG_BUNNY_SECRET_ACCESS_KEY=<storage-zone-password>
+```
+
+Leave `BACKUP_ENABLED` empty to load the config without activating the backup
+yet.
+
 What is backed up: the MariaDB database (`db/sulu-<ts>.sql.gz`), media originals
 (`var/storage` → `storage/`) and generated image formats (`public/uploads` →
 `uploads/`). The Loupe search index (`var/indexes`) is not backed up — it is
