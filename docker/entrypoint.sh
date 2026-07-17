@@ -73,16 +73,6 @@ console() {
     su-exec www-data php "$@"
 }
 
-echo "Preparing application (cache, assets, media dirs)..."
-console composer up --no-dev
-console bin/console doctrine:migrations:migrate
-console bin/console do:sch:up --force --dump-sql
-
-#console bin/adminconsole cache:clear
-#console bin/websiteconsole cache:clear
-#console bin/console assets:install public
-#console bin/adminconsole sulu:media:init
-
 echo "Waiting for database..."
 i=0
 until console bin/adminconsole doctrine:query:sql "SELECT 1" > /dev/null 2>&1; do
@@ -110,6 +100,16 @@ if ! console bin/adminconsole doctrine:query:sql "SELECT username FROM se_users 
     console bin/adminconsole sulu:security:user:create \
         "${SULU_ADMIN_USER}" Admin Sulu "${SULU_ADMIN_EMAIL}" en Admin "${SULU_ADMIN_PASSWORD}"
 fi
+
+#* Abhängigkeiten (falls Projekt im Image oder Volume gemountet)
+if [ -f "composer.json" ]; then
+    echo "Running composer update..."
+    composer update --no-dev --optimize-autoloader --no-interaction
+fi
+
+#* Datenbank-Migrationen (optional, falls DB-Zugriff nötig für Backup-Config)
+echo "Running database migrations..."
+php bin/adminconsole doctrine:migrations:migrate --no-interaction --allow-no-migration
 
 # Apache only proxies to PHP-FPM — if FPM died, Apache would keep
 # serving 503s while the container looks healthy from the outside.
