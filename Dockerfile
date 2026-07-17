@@ -1,17 +1,28 @@
-FROM php:8.4-apache
+FROM php:8.4-fpm-alpine
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        git unzip \
-        libicu-dev libzip-dev libpng-dev libjpeg62-turbo-dev libwebp-dev libfreetype6-dev \
+# Apache fronts PHP-FPM inside the same container: httpd serves static
+# files and proxies PHP requests to FPM on 127.0.0.1:9000 (see
+# docker/apache.conf). Build deps are only needed to compile the PHP
+# extensions; scanelf collects their runtime libraries so the -dev
+# packages can be dropped again.
+RUN apk add --no-cache apache2 apache2-proxy git unzip su-exec \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+        icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql intl gd zip exif opcache \
-    && a2enmod rewrite headers \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && runDeps="$(scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
+        | tr ',' '\n' | sort -u | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }')" \
+    && apk add --no-cache --virtual .run-deps $runDeps \
+    && apk del .build-deps
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/apache.conf /etc/apache2/conf.d/zz-app.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/app.ini
+
+# FPM clears the worker environment by default — keep the runtime
+# variables from Magic Containers (DATABASE_URL etc.) visible to PHP.
+RUN { echo '[www]'; echo 'clear_env = no'; } > /usr/local/etc/php-fpm.d/zz-app.conf
 
 # Keep the Symfony cache outside of /var/www/html/var so a persistent
 # volume mounted there never carries stale cache across deploys.

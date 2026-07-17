@@ -70,7 +70,7 @@ chown www-data:www-data "$APP_CACHE_DIR" var var/log var/share var/indexes var/s
 chmod -R a+rwX "$APP_CACHE_DIR" var public/uploads public/bundles
 
 console() {
-    runuser -u www-data -- php "$@"
+    su-exec www-data php "$@"
 }
 
 echo "Preparing application (cache, assets, media dirs)..."
@@ -107,4 +107,8 @@ if ! console bin/adminconsole doctrine:query:sql "SELECT username FROM se_users 
         "${SULU_ADMIN_USER}" Admin Sulu "${SULU_ADMIN_EMAIL}" en Admin "${SULU_ADMIN_PASSWORD}"
 fi
 
-exec apache2-foreground
+# PHP-FPM daemonizes into the background (-D overrides the base
+# image's daemonize=no), then Apache takes over as PID 1.
+mkdir -p /run/apache2
+php-fpm -D
+exec httpd -DFOREGROUND

@@ -4,8 +4,8 @@ A [Sulu CMS 3](https://sulu.io/) app (based on the official [sulu/skeleton](http
 
 ## What's included
 
-- `Dockerfile` - PHP 8.4 + Apache (mod_php) in a single container
-- `docker/apache.conf` - Apache vhost serving `public/` with Symfony routing
+- `Dockerfile` - PHP 8.4 (FPM) + Apache on Alpine in a single container
+- `docker/apache.conf` - Apache vhost serving `public/` statically and proxying PHP to FPM (mod_proxy_fcgi)
 - `docker/php.ini` - PHP tuning (memory limit, upload sizes for media)
 - `docker/entrypoint.sh` - Warms the cache at runtime, waits for the database, runs `sulu:build prod` on an empty database, creates the admin user, then starts Apache — all idempotent, so every restart is safe
 - `docker-compose.yml` - Local development setup with app and MariaDB
@@ -42,7 +42,7 @@ Go to your GitHub profile > **Packages** > select the package > **Package settin
    - **Image**: `ghcr.io/<your-username>/<your-repo>:latest`
    - Add an **Endpoint** on port `80`
    - Add a **Volume** mounted at `/data` (persists media originals, the search index and generated image formats)
-   - Set the environment variables (see `bunny.json`): `APP_DATA_DIR=/data`, `APP_ENV`, `APP_SECRET`, `DATABASE_URL`, `TRUSTED_PROXIES`, `SULU_ADMIN_EMAIL`, `SULU_ADMIN_USER`, `SULU_ADMIN_PASSWORD`
+   - Set the environment variables (see `bunny.json`): `APP_DATA_DIR=/data`, `APP_ENV`, `APP_SECRET`, `DATABASE_URL`, `TRUSTED_PROXIES`, `SULU_ADMIN_EMAIL`, `SULU_ADMIN_USER`, `SULU_ADMIN_PASSWORD`, and for the CDN cache invalidation `BUNNY_API_KEY`, `BUNNY_PULL_ZONE_ID`, `BUNNY_SITE_BASE_URL`
 4. Add the **db** container:
    - **Image**: `mariadb:10.11.14`
    - Set the environment variables (`MARIADB_DATABASE`, `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_ROOT_PASSWORD`)
@@ -84,4 +84,5 @@ The workflow automatically deploys to Magic Containers on every push to `main`. 
 - **The Symfony cache is container-local, not on the volume** - `APP_CACHE_DIR=/var/cache/sulu` (set in the `Dockerfile`) keeps the cache out of the persistent volume; it is rebuilt on every container start, and the entrypoint removes any stale `var/cache` leftovers from the volume.
 - **Setup is idempotent** - `sulu:build prod` only runs when the database is empty, and the admin user is only created if it doesn't exist. Restarts and redeploys are safe.
 - **`TRUSTED_PROXIES=REMOTE_ADDR`** - makes Symfony trust the Bunny edge proxy so `X-Forwarded-Proto` is honored and generated URLs use `https`.
+- **Set the Bunny CDN credentials before the first start** - The `SuluBunnyCdnBundle` is enabled in `prod` and purges the CDN cache whenever content changes. `BUNNY_API_KEY` must be the **account** API key (Account → API Key, not a pull-zone key), `BUNNY_PULL_ZONE_ID` the numeric zone id, `BUNNY_SITE_BASE_URL` the public site URL. With missing or wrong credentials the purge request fails with `401 Unauthorized` — the very first container start then aborts mid-setup (it recovers on restart, but content edits keep logging errors).
 - **Change the defaults before going to production** - Set your own `APP_SECRET`, `SULU_ADMIN_PASSWORD`, and database passwords (in `bunny.json` or as environment variables in the Magic Containers dashboard).
