@@ -85,9 +85,11 @@ until console bin/adminconsole doctrine:query:sql "SELECT 1" > /dev/null 2>&1; d
 done
 echo "Database is ready."
 
+fresh_db=0
 if ! console bin/adminconsole doctrine:query:sql "SELECT 1 FROM se_users LIMIT 1" > /dev/null 2>&1; then
     echo "Empty database detected, running sulu:build prod..."
     console bin/adminconsole sulu:build prod --no-interaction
+    fresh_db=1
 fi
 
 # sulu:build prod does not create any user (only the dev target does).
@@ -108,6 +110,15 @@ if [ -f "composer.json" ]; then
 fi
 
 #* Datenbank-Migrationen (optional, falls DB-Zugriff nötig für Backup-Config)
+# Pre-deploy backup: capture a full restore point (DB + media) before any
+# migration runs. Skipped when the DB was just built (nothing to protect).
+# backup.sh itself is a no-op unless BACKUP_ENABLED=true, so this is safe to
+# call unconditionally when the DB already existed.
+if [ "${BACKUP_BEFORE_MIGRATE:-true}" = "true" ] && [ "$fresh_db" = "0" ]; then
+    echo "Running pre-deploy backup before migrations..."
+    /usr/local/bin/backup || true
+fi
+
 echo "Running database migrations..."
 php bin/adminconsole doctrine:migrations:migrate --no-interaction --allow-no-migration
 
@@ -125,21 +136,34 @@ fpm_pid=$!
 httpd -DFOREGROUND &
 httpd_pid=$!
 
-stopping=0
-trap 'stopping=1; kill -TERM "$fpm_pid" "$httpd_pid" 2>/dev/null || true' TERM INT QUIT
+# Periodic backup: only when explicitly enabled and credentials are present.
+# busybox crond reads /var/spool/cron/crontabs; job output is redirected to
+# the container's stdout (PID 1) so it shows up in the container logs.
+crond_pid=""
+if [ "${BACKUP_ENABLED:-}" = "true" ] && [ -n "${RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID:-}" ]; then
+    : "${BACKUP_SCHEDULE:=0 3 * * *}"
+    echo "${BACKUP_SCHEDULE} /usr/local/bin/backup >/proc/1/fd/1 2>&1" | crontab -
+    echo "Backup enabled: cron schedule '${BACKUP_SCHEDULE}'."
+    crond -f -l 8 -L /dev/stderr &
+    crond_pid=$!
+fi
 
-while kill -0 "$fpm_pid" 2>/dev/null && kill -0 "$httpd_pid" 2>/dev/null; do
-    # Interruptible sleep: wait on a background sleep so TERM/INT are
-    # handled immediately instead of after the full interval.
+stopping=0
+trap 'stopping=1; kill -TERM "$fpm_pid" "$httpd_pid" ${crond_pid:+$crond_pid} 2>/dev/null || true' TERM INT QUIT
+
+while kill -0 "$fpm_pid" 2>/dev/null && kill -0 "$httpd_pid" 2>/dev/null \
+      && { [ -z "$crond_pid" ] || kill -0 "$crond_pid" 2>/dev/null; }; do
+    # Interruptible sleep: wait on a background sleep so TERM/INT are handled
+    # immediately instead of after the full interval.
     sleep 5 &
     wait $! || true
 done
 
-kill -TERM "$fpm_pid" "$httpd_pid" 2>/dev/null || true
+kill -TERM "$fpm_pid" "$httpd_pid" ${crond_pid:+$crond_pid} 2>/dev/null || true
 wait || true
 
 if [ "$stopping" = 1 ]; then
     exit 0
 fi
-echo "ERROR: php-fpm or httpd exited unexpectedly, stopping container." >&2
+echo "ERROR: php-fpm, httpd or crond exited unexpectedly, stopping container." >&2
 exit 1
