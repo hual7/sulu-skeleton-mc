@@ -5,7 +5,7 @@ FROM php:8.4-fpm-alpine
 # docker/apache.conf). Build deps are only needed to compile the PHP
 # extensions; scanelf collects their runtime libraries so the -dev
 # packages can be dropped again.
-RUN apk add --no-cache apache2 apache2-proxy git unzip su-exec \
+RUN apk add --no-cache apache2 apache2-proxy git unzip su-exec rclone mariadb-client \
         imagemagick imagemagick-jpeg imagemagick-webp imagemagick-heic imagemagick-svg \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
         icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev imagemagick-dev \
@@ -46,7 +46,8 @@ RUN composer dump-autoload --optimize --no-dev \
 
 COPY docker/entrypoint.sh /entrypoint.sh
 COPY docker/clear-caches.sh /usr/local/bin/clear-caches
-RUN chmod +x /entrypoint.sh /usr/local/bin/clear-caches
+COPY docker/backup.sh /usr/local/bin/backup
+RUN chmod +x /entrypoint.sh /usr/local/bin/clear-caches /usr/local/bin/backup
 
 EXPOSE 80
 
