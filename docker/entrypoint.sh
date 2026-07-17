@@ -111,6 +111,10 @@ fi
 echo "Running database migrations..."
 php bin/adminconsole doctrine:migrations:migrate --no-interaction --allow-no-migration
 
+#* Suche indexieren
+echo "Reindex search..."
+php bin/adminconsole cmsig:seal:reindex
+
 # Apache only proxies to PHP-FPM — if FPM died, Apache would keep
 # serving 503s while the container looks healthy from the outside.
 # Supervise both as children and exit as soon as either one dies, so
