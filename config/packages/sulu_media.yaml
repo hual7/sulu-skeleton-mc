@@ -1,9 +1,22 @@
 sulu_media:
     adapter: 'imagick' # Can be set to a fixed adapter with 'gd', 'vips' or 'imagick'
+    upload:
+        max_filesize: 256 # Max upload filesize (in MB)
+        blocked_file_types: # Will prevent the user from uploading files with those mime types
+            - video/x-flv
+            - video/MP2T
+            - video/3gpp
+            - video/quicktime
+            - video/x-msvideo
+            - video/x-ms-wmv
     format_manager:
+        # a value between 95 and 75 is recommended
+        # see also: https://docs.sulu.io/en/3.x/book/image-formats.html
         default_imagine_options:
-            # a value between 95 and 75 is recommended
-            # see also: https://docs.sulu.io/en/2.6/book/image-formats.html
-            jpeg_quality: 90
-            webp_quality: 90
-            avif_quality: 90
+            jpeg_quality: 75
+            webp_quality: 75
+            avif_quality: 55
+            png_compression_level: 6
+    ffmpeg:
+        ffmpeg_binary: /usr/bin/ffmpeg
+        ffprobe_binary: /usr/bin/ffprobe

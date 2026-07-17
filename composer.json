@@ -38,6 +38,7 @@
         "doctrine/doctrine-fixtures-bundle": "^3.6 || ^4.0",
         "doctrine/doctrine-migrations-bundle": "^3.3",
         "friendsofsymfony/http-cache-bundle": "^3.0",
+        "php-ffmpeg/php-ffmpeg": "^1.4",
         "scheb/2fa-bundle": "^7.4",
         "scheb/2fa-email": "^7.4",
         "scheb/2fa-trusted-device": "^7.4",
