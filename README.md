@@ -150,24 +150,26 @@ RCLONE_CONFIG_BUNNY_SECRET_ACCESS_KEY=<storage-zone-password>
 Leave `BACKUP_ENABLED` empty to load the config without activating the backup
 yet.
 
-What is backed up: the MariaDB database (`db/sulu-<ts>.sql.gz`), media originals
-(`var/storage` → `storage/`) and generated image formats (`public/uploads` →
-`uploads/`). The Loupe search index (`var/indexes`) is not backed up — it is
-rebuilt from the database and media.
+Everything is written under a `_backup/` prefix in the zone, so the storage zone
+can be shared with other content (e.g. CDN media) without colliding. What is
+backed up: the MariaDB database (`_backup/db/sulu-<ts>.sql.gz`), media originals
+(`var/storage` → `_backup/storage/`) and generated image formats
+(`public/uploads` → `_backup/uploads/`). The Loupe search index (`var/indexes`)
+is not backed up — it is rebuilt from the database and media.
 
 Bunny's S3-compatible API is currently in closed preview and must be enabled on
 the storage zone. Without S3 access, set `RCLONE_CONFIG_BUNNY_TYPE=sftp` and the
 matching SFTP host/user/key vars instead — the backup logic is unchanged.
 
 With `BACKUP_KEEP_DELETED=true` (the default), media that is deleted or
-overwritten locally is preserved under `_deleted/<timestamp>/` on the storage
-zone. This prefix is **not** pruned automatically and will grow over time —
+overwritten locally is preserved under `_backup/_deleted/<timestamp>/` on the
+storage zone. This prefix is **not** pruned automatically and will grow over time —
 prune it periodically, or set `BACKUP_KEEP_DELETED=false` to disable versioning.
 
 ### Restore
 
-1. Media: `rclone sync bunny:<bucket>/storage "$APP_DATA_DIR/storage"` and the
-   same for `uploads`.
-2. Database: `rclone copy bunny:<bucket>/db/sulu-<ts>.sql.gz .` then
+1. Media: `rclone sync bunny:<bucket>/_backup/storage "$APP_DATA_DIR/storage"` and
+   the same for `uploads`.
+2. Database: `rclone copy bunny:<bucket>/_backup/db/sulu-<ts>.sql.gz .` then
    `gunzip -c sulu-<ts>.sql.gz | mariadb -h 127.0.0.1 -u sulu -psulu sulu`.
 3. Rebuild the search index: `bin/adminconsole cmsig:seal:reindex`.

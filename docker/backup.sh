@@ -38,7 +38,9 @@ cd "$APP_ROOT" || { fail "cannot enter app root '$APP_ROOT', aborting backup."; 
 : "${BACKUP_KEEP_DELETED:=true}"
 : "${APP_CACHE_DIR:=/var/cache/sulu}"
 : "${DATABASE_URL:=}"
-REMOTE="bunny:${BACKUP_BUCKET}"
+# Namespace everything under _backup/ so the storage zone can be shared with
+# other content (CDN media etc.) without colliding.
+REMOTE="bunny:${BACKUP_BUCKET}/_backup"
 
 # Bound every rclone call so a slow or unreachable remote can't stall the
 # pre-deploy backup (which blocks container start) for minutes on rclone's
