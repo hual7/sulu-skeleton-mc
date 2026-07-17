@@ -11,6 +11,15 @@ Backup umfasst die Datenbank und die Medien; es läuft periodisch **im
 App-Container** per Cron und ist **opt-in** (deaktiviert, solange keine
 Credentials gesetzt sind).
 
+Zusätzlich läuft bei jedem Deploy ein **Pre-Deploy-Backup**: Der Entrypoint des
+neu gestarteten Containers führt unmittelbar **vor der Migration** einen
+vollständigen Backup-Lauf (DB + Medien) aus. Ein Deploy = MC bootet das neue
+App-Image mit demselben persistenten `/data`-Volume und demselben DB-Container;
+der Zustand direkt vor `doctrine:migrations:migrate` ist damit der echte
+Pre-Deploy-Restore-Punkt — ohne externe Orchestrierung (die
+`container-update-image`-Action tauscht nur das Image-Tag und kann nicht in den
+Container exec'en).
+
 Nicht-Ziele: Zwei-Wege-Sync, Auslagern des Storage-Layers (Flysystem-Adapter),
 Restore-Automatik. Restore erfolgt manuell (siehe Abschnitt Restore).
 
@@ -76,7 +85,15 @@ Symlinks nach `/data`. rclone folgt Symlinks nur mit `--copy-links` / `-L` —
 das Skript setzt `-L`, damit die Symlink-Ziele gesynct werden.
 
 ### 3. `docker/entrypoint.sh`
-- Wenn `BACKUP_ENABLED=true` **und** die S3-Credentials nicht leer sind:
+- **Pre-Deploy-Backup:** Nachdem die DB erreichbar ist, aber **bevor**
+  `doctrine:migrations:migrate` läuft: wenn `BACKUP_BEFORE_MIGRATE=true` (Default,
+  sobald Backup aktiv) **und** die DB nicht gerade frisch initialisiert wurde
+  (kein Restore-Punkt nötig bei leerer DB — die `se_users`-Erkennung des
+  Empty-DB-Zweigs liefert dieses Flag), einmalig synchron `backup` ausführen
+  (voller Lauf, DB + Medien). Blockiert den Deploy bis das Backup steht.
+  `flock` verhindert Kollision mit einem parallelen Cron-Lauf.
+- **Periodisches Backup:** Wenn `BACKUP_ENABLED=true` **und** die S3-Credentials
+  nicht leer sind:
   - Crontab schreiben (`$BACKUP_SCHEDULE /usr/local/bin/backup`), Default-Schedule
     `0 3 * * *` (täglich 03:00, Container-Zeit).
   - `crond` als **viertes überwachtes Kind** neben `php-fpm` und `httpd`
@@ -92,6 +109,7 @@ standardmäßig **aus**):
 
 ```
 BACKUP_ENABLED=""                       # "true" schaltet das Backup an
+BACKUP_BEFORE_MIGRATE="true"            # voller Backup-Lauf vor jeder Migration
 BACKUP_SCHEDULE="0 3 * * *"             # Cron-Ausdruck
 BACKUP_RETENTION="7"                    # Anzahl aufbewahrter DB-Dumps
 BACKUP_KEEP_DELETED="true"              # gelöschte Medien versioniert aufbewahren
@@ -136,6 +154,10 @@ Kurzer Abschnitt: Backup aktivieren (Env-Vars), Schedule, Restore-Prozedur.
   - `BACKUP_KEEP_DELETED=true`: lokal gelöschte Datei erscheint unter `_deleted/`.
 - Symlink-Modus (APP_DATA_DIR): Sync erfasst die Symlink-Ziele (`-L`).
 - SIGTERM: crond wird mitbeendet, Container stoppt ohne SIGKILL-Verzögerung.
+- **Pre-Deploy-Backup:** Container-Start mit bestehender DB → voller Backup-Lauf
+  läuft **vor** der Migration, Deploy wartet darauf. Container-Start mit frisch
+  initialisierter (leerer) DB → Pre-Deploy-Backup wird übersprungen.
+  `BACKUP_BEFORE_MIGRATE=false` → kein Pre-Deploy-Backup, Cron-Lauf unberührt.
 
 ## Offene Punkte / Risiken
 
