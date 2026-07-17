@@ -17,33 +17,54 @@ export APP_CACHE_DIR
 # Apache. Acceptable tradeoff inside a single-app container.
 umask 000
 
-# The persistent volume (mounted at var/) only holds media originals,
-# the search index and logs. The Symfony cache lives in APP_CACHE_DIR
-# outside the volume — it is per-image-build and must not survive
-# deploys. Remove stale cache an older image may have left on the
-# volume; leftover root-owned files there would break cache:clear.
+# Older images symlinked all of var/ into APP_DATA_DIR — undo that.
+# Only var/storage, var/indexes and public/uploads live on the volume
+# now; data already in those subdirectories is picked up as-is.
+if [ -L var ]; then
+    rm var
+    mkdir var
+fi
+
+# Three directories hold data that must survive deploys: media
+# originals (var/storage, flysystem), the Loupe search index
+# (var/indexes) and generated image formats (public/uploads).
+# Everything else under var/ is rebuilt at runtime — the Symfony cache
+# lives in APP_CACHE_DIR outside the volume. Remove stale cache an
+# older image may have left behind; leftover root-owned files there
+# would break cache:clear.
 rm -rf var/cache
 
-# Shared-volume mode: when one volume is shared between app and db
-# (mounted e.g. at /data in both), each container must stay inside its
-# own subdirectory. Set APP_DATA_DIR (e.g. /data/app) and var/ becomes
-# a symlink into it; the db container gets its own subdir via
-# --datadir (see README). Not needed when a dedicated volume is
-# mounted directly at /var/www/html/var.
-if [ -n "${APP_DATA_DIR:-}" ] && [ ! -L var ]; then
+# Persistent-volume mode: mount the app volume at /data and set
+# APP_DATA_DIR=/data — var/storage, var/indexes and public/uploads
+# become symlinks into it. With a single volume shared between app and
+# db, point APP_DATA_DIR at a subdirectory (e.g. /data/app) instead so
+# the containers stay out of each other's way (see README). When a
+# volume is mounted directly at var/, leave APP_DATA_DIR unset.
+if [ -n "${APP_DATA_DIR:-}" ]; then
     if mountpoint -q var; then
         echo "WARNING: APP_DATA_DIR is set but a volume is mounted at var/ — ignoring APP_DATA_DIR." >&2
     else
-        mkdir -p "$APP_DATA_DIR"
-        rm -rf var
-        ln -s "$APP_DATA_DIR" var
+        for dir in storage indexes uploads; do
+            case $dir in
+                uploads) link=public/uploads ;;
+                *) link=var/$dir ;;
+            esac
+            mkdir -p "$APP_DATA_DIR/$dir"
+            if [ ! -L "$link" ]; then
+                rm -rf "$link"
+                ln -s "$APP_DATA_DIR/$dir" "$link"
+            fi
+        done
+        chmod -R a+rwX "$APP_DATA_DIR"
     fi
 fi
 
-# var/ may be a freshly mounted, empty volume — recreate the layout and
-# make it writable for www-data before running any console command.
-# chown covers volume backends with working ownership; chmod covers the
-# ones that force ownership to root (see umask note above).
+# var/ (or a freshly mounted, empty volume) may lack the layout —
+# recreate it and make it writable for www-data before running any
+# console command. chown covers volume backends with working
+# ownership; chmod covers the ones that force ownership to root (see
+# umask note above). chmod -R does not descend into the APP_DATA_DIR
+# symlinks — the block above already covered their targets.
 mkdir -p "$APP_CACHE_DIR" var/log var/share var/indexes var/sessions var/storage public/uploads public/bundles
 chown www-data:www-data "$APP_CACHE_DIR" var var/log var/share var/indexes var/sessions var/storage public/uploads public/bundles || true
 chmod -R a+rwX "$APP_CACHE_DIR" var public/uploads public/bundles

@@ -6,7 +6,7 @@ services:
     environment:
       - APP_ENV=prod
       - APP_SECRET=df8ab92c6cdd0776f9717e6c0f3fbb1d
-      - DATABASE_URL=mysql://sulu:sulu@db:3306/sulu?serverVersion=11.8.2-MariaDB&charset=utf8mb4
+      - DATABASE_URL=mysql://sulu:sulu@db:3306/sulu?serverVersion=10.11.14-MariaDB&charset=utf8mb4
       - SULU_ADMIN_EMAIL=admin@example.com
       - DEFAULT_URI=http://localhost:8000
     volumes:

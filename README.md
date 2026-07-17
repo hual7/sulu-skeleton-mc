@@ -41,10 +41,10 @@ Go to your GitHub profile > **Packages** > select the package > **Package settin
    - **Registry**: GitHub Container Registry (`ghcr.io`)
    - **Image**: `ghcr.io/<your-username>/<your-repo>:latest`
    - Add an **Endpoint** on port `80`
-   - Add a **Volume** mounted at `/var/www/html/var` (persists media uploads and the search index)
-   - Set the environment variables (see `bunny.json`): `APP_ENV`, `APP_SECRET`, `DATABASE_URL`, `TRUSTED_PROXIES`, `SULU_ADMIN_EMAIL`, `SULU_ADMIN_USER`, `SULU_ADMIN_PASSWORD`
+   - Add a **Volume** mounted at `/data` (persists media originals, the search index and generated image formats)
+   - Set the environment variables (see `bunny.json`): `APP_DATA_DIR=/data`, `APP_ENV`, `APP_SECRET`, `DATABASE_URL`, `TRUSTED_PROXIES`, `SULU_ADMIN_EMAIL`, `SULU_ADMIN_USER`, `SULU_ADMIN_PASSWORD`
 4. Add the **db** container:
-   - **Image**: `mariadb:11`
+   - **Image**: `mariadb:10.11.14`
    - Set the environment variables (`MARIADB_DATABASE`, `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_ROOT_PASSWORD`)
    - Add a **Volume** mounted at `/var/lib/mysql`
 5. Confirm and deploy.
@@ -59,12 +59,12 @@ curl https://mc-xxx.bunny.run
 
 The Sulu admin is available at `https://mc-xxx.bunny.run/admin`.
 
-## Using a single shared volume
+## Fallback: single shared volume
 
-If you can only attach one volume to the app, share it between both containers — but each container must stay inside its own subdirectory (two processes writing to the volume root will corrupt each other):
+The two dedicated volumes above are the recommended setup. If your Magic Containers plan limits you to one volume per app, share it between both containers instead — but each container must stay inside its own subdirectory (two processes writing to the volume root will corrupt each other):
 
 1. Mount the shared volume at `/data` in **both** containers.
-2. **app** container: set the environment variable `APP_DATA_DIR=/data/app`. The entrypoint then symlinks `var/` into that subdirectory (media, search index, logs).
+2. **app** container: set `APP_DATA_DIR=/data/app` (instead of `/data`) so the app data lands in its own subdirectory.
 3. **db** container: set the startup command to `docker-entrypoint.sh mariadbd --datadir=/data/mysql` so MariaDB initializes and keeps its data in its own subdirectory.
 
 MariaDB only initializes an empty data directory — once set up, deploys never touch it. The same applies to the Sulu setup: `sulu:build prod` and the admin user creation only run when the database is empty, never on later deploys or restarts.
@@ -80,7 +80,7 @@ The workflow automatically deploys to Magic Containers on every push to `main`. 
 
 - **`DATABASE_URL` must use `127.0.0.1`, not `localhost`** - Magic Containers share a localhost network between containers. However, PHP/PDO interprets `localhost` as a Unix socket connection, which fails. Always use `127.0.0.1` to force TCP.
 - **Don't cache config at build time** - The `Dockerfile` does not warm the Symfony cache. The cache is built at container startup via the entrypoint script so it picks up runtime environment variables.
-- **The app container needs a volume at `/var/www/html/var`** - Sulu stores media originals (`var/share`) and the Loupe search index (`var/indexes`) on the filesystem. Without the volume, uploads are lost on every deploy.
+- **Only `var/storage`, `var/indexes` and `public/uploads` live on the volume** - The entrypoint symlinks media originals (`var/storage`, flysystem), the Loupe search index (`var/indexes`) and generated image formats (`public/uploads`) into `APP_DATA_DIR`. Without the volume, uploads and the search index are lost on every deploy.
 - **The Symfony cache is container-local, not on the volume** - `APP_CACHE_DIR=/var/cache/sulu` (set in the `Dockerfile`) keeps the cache out of the persistent volume; it is rebuilt on every container start, and the entrypoint removes any stale `var/cache` leftovers from the volume.
 - **Setup is idempotent** - `sulu:build prod` only runs when the database is empty, and the admin user is only created if it doesn't exist. Restarts and redeploys are safe.
 - **`TRUSTED_PROXIES=REMOTE_ADDR`** - makes Symfony trust the Bunny edge proxy so `X-Forwarded-Proto` is honored and generated URLs use `https`.
