@@ -22,6 +22,7 @@
                 "DATABASE_URL": "mysql://sulu:sulu@127.0.0.1:3306/sulu?serverVersion=10.11.14-MariaDB&charset=utf8mb4",
                 "TRUSTED_PROXIES": "REMOTE_ADDR",
                 "APP_DATA_DIR": "/data",
+                "DB_WAIT_RETRIES": "120",
                 "BUNNY_API_KEY": "",
                 "BUNNY_PULL_ZONE_ID": "",
                 "BUNNY_SITE_BASE_URL": "",

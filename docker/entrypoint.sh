@@ -73,12 +73,17 @@ console() {
     su-exec www-data php "$@"
 }
 
-echo "Waiting for database..."
+# Wait for the database to accept connections. Magic Containers starts the
+# app and db containers together with no ordering guarantee, so the app polls
+# instead of relying on start order. One attempt per second; tune the ceiling
+# via DB_WAIT_RETRIES for slow cold starts (e.g. first-ever volume init).
+: "${DB_WAIT_RETRIES:=120}"
+echo "Waiting for database (up to ${DB_WAIT_RETRIES}s)..."
 i=0
 until console bin/adminconsole doctrine:query:sql "SELECT 1" > /dev/null 2>&1; do
     i=$((i + 1))
-    if [ "$i" -ge 60 ]; then
-        echo "ERROR: database was not reachable after 60 seconds, giving up." >&2
+    if [ "$i" -ge "$DB_WAIT_RETRIES" ]; then
+        echo "ERROR: database was not reachable after ${DB_WAIT_RETRIES} seconds, giving up." >&2
         exit 1
     fi
     sleep 1
