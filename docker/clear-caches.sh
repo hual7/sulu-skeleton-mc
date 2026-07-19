@@ -13,7 +13,7 @@ echo "Clearing stale volume cache leftovers (var/cache)..."
 rm -rf var/cache
 
 echo "Rebuilding Symfony cache..."
-su-exec www-data php bin/adminconsole cache:clear
-su-exec www-data php bin/websiteconsole cache:clear
+gosu www-data php bin/adminconsole cache:clear
+gosu www-data php bin/websiteconsole cache:clear
 
 echo "Done."

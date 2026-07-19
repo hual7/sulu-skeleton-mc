@@ -4,8 +4,8 @@ A [Sulu CMS 3](https://sulu.io/) app (based on the official [sulu/skeleton](http
 
 ## What's included
 
-- `Dockerfile` - PHP 8.4 (FPM) + Apache on Alpine in a single container
-- `docker/apache.conf` - Apache vhost serving `public/` statically and proxying PHP to FPM (mod_proxy_fcgi)
+- `Dockerfile` - PHP 8.4 running as an Apache module (mod_php) on Debian in a single container
+- `docker/apache.conf` - Apache vhost serving `public/` statically and executing PHP in-process via mod_php
 - `docker/php.ini` - PHP tuning (memory limit, upload sizes for media)
 - `docker/entrypoint.sh` - Warms the cache at runtime, waits for the database, runs `sulu:build prod` on an empty database, creates the admin user, then starts Apache — all idempotent, so every restart is safe
 - `docker-compose.yml` - Local development setup with app and MariaDB

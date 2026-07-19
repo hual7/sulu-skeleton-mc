@@ -1,31 +1,25 @@
-FROM php:8.4-fpm-alpine
+FROM php:8.4-apache
 
-# Apache fronts PHP-FPM inside the same container: httpd serves static
-# files and proxies PHP requests to FPM on 127.0.0.1:9000 (see
-# docker/apache.conf). Build deps are only needed to compile the PHP
-# extensions; scanelf collects their runtime libraries so the -dev
-# packages can be dropped again.
-RUN apk add --no-cache apache2 apache2-proxy git unzip su-exec rclone mariadb-client ffmpeg ghostscript \
-        imagemagick imagemagick-jpeg imagemagick-webp imagemagick-heic imagemagick-svg \
-    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
-        icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev imagemagick-dev \
+# Debian-based image running PHP as an Apache module (mod_php): Apache
+# serves static files and executes PHP in-process, no separate FPM
+# daemon. The -dev packages are only needed to compile the PHP
+# extensions but are kept installed so their runtime shared libraries
+# stay available to the built extensions (apt has no scanelf-style
+# runtime-dep detection).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git unzip gosu cron rclone mariadb-client ffmpeg ghostscript imagemagick \
+        libicu-dev libzip-dev libpng-dev libjpeg62-turbo-dev libwebp-dev libfreetype6-dev libmagickwand-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql intl gd zip exif opcache \
     && printf '\n' | pecl install imagick \
     && docker-php-ext-enable imagick \
-    && runDeps="$(scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
-        | tr ',' '\n' | sort -u | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }')" \
-    && apk add --no-cache --virtual .run-deps $runDeps \
-    && apk del .build-deps
+    && a2enmod rewrite headers \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-COPY docker/apache.conf /etc/apache2/conf.d/zz-app.conf
+COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/app.ini
-
-# FPM clears the worker environment by default — keep the runtime
-# variables from Magic Containers (DATABASE_URL etc.) visible to PHP.
-RUN { echo '[www]'; echo 'clear_env = no'; } > /usr/local/etc/php-fpm.d/zz-app.conf
 
 # Keep the Symfony cache outside of /var/www/html/var so a persistent
 # volume mounted there never carries stale cache across deploys.
@@ -51,9 +45,10 @@ RUN chmod +x /entrypoint.sh /usr/local/bin/clear-caches /usr/local/bin/backup
 
 EXPOSE 80
 
-# The php:fpm base image sets STOPSIGNAL SIGQUIT, which the entrypoint
-# shell would ignore — docker stop would hang and SIGKILL after the
-# grace period. TERM is handled by the entrypoint's supervise loop.
+# The php:apache base image sets STOPSIGNAL SIGWINCH (Apache's graceful
+# stop), which the entrypoint shell would ignore — docker stop would
+# hang and SIGKILL after the grace period. TERM is handled by the
+# entrypoint's supervise loop.
 STOPSIGNAL SIGTERM
 
 CMD ["/entrypoint.sh"]

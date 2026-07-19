@@ -70,7 +70,7 @@ chown www-data:www-data "$APP_CACHE_DIR" var var/log var/share var/indexes var/s
 chmod -R a+rwX "$APP_CACHE_DIR" var public/uploads public/bundles
 
 console() {
-    su-exec www-data php "$@"
+    gosu www-data php "$@"
 }
 
 # Wait for the database to accept connections. Magic Containers starts the
@@ -131,32 +131,29 @@ php bin/adminconsole doctrine:migrations:migrate --no-interaction --allow-no-mig
 echo "Reindex search..."
 php bin/adminconsole cmsig:seal:reindex
 
-# Apache only proxies to PHP-FPM — if FPM died, Apache would keep
-# serving 503s while the container looks healthy from the outside.
-# Supervise both as children and exit as soon as either one dies, so
-# Magic Containers restarts the whole container instead.
-mkdir -p /run/apache2
-php-fpm -F &
-fpm_pid=$!
-httpd -DFOREGROUND &
+# PHP runs in-process via mod_php, so Apache is the only web process.
+# Supervise it (and the optional cron daemon) as children and exit as
+# soon as either one dies, so Magic Containers restarts the whole
+# container instead of leaving it up in a broken state.
+apache2-foreground &
 httpd_pid=$!
 
 # Periodic backup: only when explicitly enabled and credentials are present.
-# busybox crond reads /var/spool/cron/crontabs; job output is redirected to
-# the container's stdout (PID 1) so it shows up in the container logs.
+# Debian cron reads /var/spool/cron/crontabs; job output is redirected to the
+# container's stdout (PID 1) so it shows up in the container logs.
 crond_pid=""
 if [ "${BACKUP_ENABLED:-}" = "true" ] && [ -n "${RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID:-}" ]; then
     : "${BACKUP_SCHEDULE:=0 3 * * *}"
     echo "${BACKUP_SCHEDULE} /usr/local/bin/backup >/proc/1/fd/1 2>&1" | crontab -
     echo "Backup enabled: cron schedule '${BACKUP_SCHEDULE}'."
-    crond -f -l 8 -L /dev/stderr &
+    cron -f &
     crond_pid=$!
 fi
 
 stopping=0
-trap 'stopping=1; kill -TERM "$fpm_pid" "$httpd_pid" ${crond_pid:+$crond_pid} 2>/dev/null || true' TERM INT QUIT
+trap 'stopping=1; kill -TERM "$httpd_pid" ${crond_pid:+$crond_pid} 2>/dev/null || true' TERM INT QUIT
 
-while kill -0 "$fpm_pid" 2>/dev/null && kill -0 "$httpd_pid" 2>/dev/null \
+while kill -0 "$httpd_pid" 2>/dev/null \
       && { [ -z "$crond_pid" ] || kill -0 "$crond_pid" 2>/dev/null; }; do
     # Interruptible sleep: wait on a background sleep so TERM/INT are handled
     # immediately instead of after the full interval.
@@ -164,11 +161,11 @@ while kill -0 "$fpm_pid" 2>/dev/null && kill -0 "$httpd_pid" 2>/dev/null \
     wait $! || true
 done
 
-kill -TERM "$fpm_pid" "$httpd_pid" ${crond_pid:+$crond_pid} 2>/dev/null || true
+kill -TERM "$httpd_pid" ${crond_pid:+$crond_pid} 2>/dev/null || true
 wait || true
 
 if [ "$stopping" = 1 ]; then
     exit 0
 fi
-echo "ERROR: php-fpm, httpd or crond exited unexpectedly, stopping container." >&2
+echo "ERROR: httpd or cron exited unexpectedly, stopping container." >&2
 exit 1
