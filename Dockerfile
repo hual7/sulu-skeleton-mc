@@ -41,6 +41,7 @@ RUN composer dump-autoload --optimize --no-dev \
 COPY docker/entrypoint.sh /entrypoint.sh
 COPY docker/clear-caches.sh /usr/local/bin/clear-caches
 COPY docker/backup.sh /usr/local/bin/backup
+COPY docker/runtime-state.sh /usr/local/lib/runtime-state.sh
 RUN chmod +x /entrypoint.sh /usr/local/bin/clear-caches /usr/local/bin/backup
 
 EXPOSE 80

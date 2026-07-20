@@ -88,7 +88,7 @@ The two dedicated volumes above are the recommended setup. If your Magic Contain
 2. **app** container: set `APP_DATA_DIR=/data/app` (instead of `/data`) so the app data lands in its own subdirectory.
 3. **db** container: set the startup command to `docker-entrypoint.sh mariadbd --datadir=/data/mysql` so MariaDB initializes and keeps its data in its own subdirectory.
 
-MariaDB only initializes an empty data directory — once set up, deploys never touch it. The same applies to the Sulu setup: `sulu:build prod` and the admin user creation only run when the database is empty, never on later deploys or restarts.
+MariaDB only initializes an empty data directory — once set up, deploys never touch it. The same applies to the Sulu setup: `sulu:build prod` runs only on the very first deploy. If the database is ever empty again after that (e.g. a lost volume), the container refuses to start rather than rebuilding a blank site over the loss — see [First build runs once, guarded against volume loss](#important-notes-for-magic-containers) below.
 
 ## Continuous deployment
 
@@ -103,7 +103,7 @@ The workflow automatically deploys to Magic Containers on every push to `main`. 
 - **Don't cache config at build time** - The `Dockerfile` does not warm the Symfony cache. The cache is built at container startup via the entrypoint script so it picks up runtime environment variables.
 - **Only `var/storage`, `var/indexes` and `public/uploads` live on the volume** - The entrypoint symlinks media originals (`var/storage`, flysystem), the Loupe search index (`var/indexes`) and generated image formats (`public/uploads`) into `APP_DATA_DIR`. Without the volume, uploads and the search index are lost on every deploy.
 - **The Symfony cache is container-local, not on the volume** - `APP_CACHE_DIR=/var/cache/sulu` (set in the `Dockerfile`) keeps the cache out of the persistent volume; it is rebuilt on every container start, and the entrypoint removes any stale `var/cache` leftovers from the volume.
-- **Setup is idempotent** - `sulu:build prod` only runs when the database is empty, and the admin user is only created if it doesn't exist. Restarts and redeploys are safe.
+- **First build runs once, guarded against volume loss** - `sulu:build prod` runs only on the very first deploy (empty database), and the admin user is created only if missing. Because MC volumes are node-bound and can come back empty (see the persistent-volume note below), the entrypoint records that the first build happened in two places: a local marker on the data volume and `_runtime/.initialized` on Bunny Storage (durable — survives total volume loss and is authoritative when reachable). If a marker exists but the database is empty, the container **refuses to start** and asks you to restore from a backup instead of silently rebuilding a blank site. Set `SULU_FORCE_BUILD=true` to force a deliberate rebuild. The durable marker needs the same rclone credentials as the backup (below); without them only the local marker is used, which still covers the common "DB volume lost, data volume intact" case.
 - **`TRUSTED_PROXIES=REMOTE_ADDR`** - makes Symfony trust the Bunny edge proxy so `X-Forwarded-Proto` is honored and generated URLs use `https`.
 - **Set the Bunny CDN credentials before the first start** - The `SuluBunnyCdnBundle` is enabled in `prod` and purges the CDN cache whenever content changes. `BUNNY_API_KEY` must be the **account** API key (Account → API Key, not a pull-zone key), `BUNNY_PULL_ZONE_ID` the numeric zone id, `BUNNY_SITE_BASE_URL` the public site URL. With missing or wrong credentials the purge request fails with `401 Unauthorized` — the very first container start then aborts mid-setup (it recovers on restart, but content edits keep logging errors).
 - **Change the defaults before going to production** - Set your own `APP_SECRET`, `SULU_ADMIN_PASSWORD`, and database passwords (in `bunny.json` or as environment variables in the Magic Containers dashboard).
@@ -156,6 +156,22 @@ backed up: the MariaDB database (`_backup/db/sulu-<ts>.sql.gz`), media originals
 (`var/storage` → `_backup/storage/`) and generated image formats
 (`public/uploads` → `_backup/uploads/`). The Loupe search index (`var/indexes`)
 is not backed up — it is rebuilt from the database and media.
+
+### Durable init marker (`_runtime/`)
+
+The same rclone remote also holds a tiny `_runtime/.initialized` marker, under a
+`_runtime/` prefix separate from `_backup/`. It is the authoritative record that
+the app has been set up, used to tell a genuine first deploy (empty database →
+build) apart from a lost volume (empty database but already initialized → refuse
+to start, restore from backup). Unlike the node-bound MC volumes, Bunny Storage
+survives a total volume loss, so this closes the gap the local marker cannot.
+
+It needs only the `BUNNY_*`/`RCLONE_CONFIG_BUNNY_*` credentials and
+`BACKUP_BUCKET` — **not** `BACKUP_ENABLED`. Set the credentials from the first
+deploy (or at least while the database is still intact) so the marker is written
+before it is ever needed; a deployment that adopts this later backfills the
+marker automatically on the next start while the DB is populated. To force a
+fresh build despite the marker (deliberate re-init), set `SULU_FORCE_BUILD=true`.
 
 Bunny's S3-compatible API is currently in closed preview and must be enabled on
 the storage zone. Without S3 access, set `RCLONE_CONFIG_BUNNY_TYPE=sftp` and the

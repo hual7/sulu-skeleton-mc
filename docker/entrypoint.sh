@@ -90,11 +90,68 @@ until console bin/adminconsole doctrine:query:sql "SELECT 1" > /dev/null 2>&1; d
 done
 echo "Database is ready."
 
+# sulu:build must run exactly ONCE, on the very first deploy — it builds the
+# Sulu schema and initial content into an empty database. "Is the DB empty?"
+# alone is an unsafe trigger: MC volumes are node-bound and can come back
+# blank (see README / persistent-volume notes), and an empty DB would then
+# silently rebuild a fresh, blank site over the loss. Two markers record that
+# the first build already happened:
+#   - a local marker on the DATA volume (fast, no network)
+#   - _runtime/.initialized on Bunny Storage (survives total volume loss and is
+#     therefore AUTHORITATIVE whenever the remote is reachable)
+# so a later empty DB is treated as data loss (refuse to start) instead of a
+# first deploy. Deliberate rebuilds: set SULU_FORCE_BUILD=true.
+. /usr/local/lib/runtime-state.sh
+
+DATA_ROOT="${APP_DATA_DIR:-var}"
+LOCAL_MARKER="$DATA_ROOT/.sulu-initialized"
+
+db_built() {
+    # Succeeds once the Sulu schema exists (se_users table present), even with
+    # zero rows; fails on a truly empty database.
+    console bin/adminconsole doctrine:query:sql "SELECT 1 FROM se_users LIMIT 1" > /dev/null 2>&1
+}
+
+# Prior-initialisation from the most durable evidence available:
+#   yes | no | unknown  (no = remote reachable AND marker definitively absent)
+if runtime_reachable; then
+    if runtime_exists ".initialized"; then initialized=yes; else initialized=no; fi
+    echo "Init state (Bunny Storage _runtime): initialized=$initialized"
+elif [ -f "$LOCAL_MARKER" ]; then
+    initialized=yes
+    echo "Init state (local marker; remote unavailable): initialized=yes"
+else
+    initialized=unknown
+    echo "Init state: no durable and no local marker."
+fi
+
 fresh_db=0
-if ! console bin/adminconsole doctrine:query:sql "SELECT 1 FROM se_users LIMIT 1" > /dev/null 2>&1; then
+if db_built; then
+    :  # DB intact — nothing to build; markers are (back)filled below.
+elif [ "$initialized" = "yes" ] && [ "${SULU_FORCE_BUILD:-}" != "true" ]; then
+    echo "ERROR: the app was initialised before (durable marker present) but the" >&2
+    echo "       database is empty — it has been lost. Refusing to build a blank" >&2
+    echo "       site over it. Restore the database from a backup, or set" >&2
+    echo "       SULU_FORCE_BUILD=true to force a fresh build." >&2
+    exit 1
+else
+    # Genuine first deploy (no durable evidence of a prior init), or forced.
     echo "Empty database detected, running sulu:build prod..."
     console bin/adminconsole sulu:build prod --no-interaction
     fresh_db=1
+fi
+
+# Persist / backfill both markers now that the DB is known-good. The local
+# marker self-heals a reset data volume; the durable one closes the "both
+# volumes lost" gap and backfills for deployments adopting this logic.
+mkdir -p "$DATA_ROOT" 2>/dev/null || true
+: > "$LOCAL_MARKER" 2>/dev/null || true
+if runtime_configured && ! runtime_exists ".initialized"; then
+    if runtime_put ".initialized"; then
+        echo "Wrote durable init marker: ${RUNTIME_REMOTE}/.initialized"
+    else
+        echo "WARNING: could not write durable init marker to Bunny Storage." >&2
+    fi
 fi
 
 # sulu:build prod does not create any user (only the dev target does).
