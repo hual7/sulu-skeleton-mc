@@ -47,6 +47,7 @@
                 <title lang="en">Article</title>
                 <title lang="de">Artikel</title>
             </meta>
+            <tag name="sulu.search.field" />
         </property>
     </properties>
 </template>
