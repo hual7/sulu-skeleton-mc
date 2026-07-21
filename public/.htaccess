@@ -18,7 +18,7 @@ DirectoryIndex index.php
 </IfModule>
 
 <IfModule mod_headers.c>
-    RequestHeader set Host "mc-taic8vdn2b.bunny.run"
+    RequestHeader set Host "sulu.alengo.io"
 </IfModule>
 
 <IfModule mod_rewrite.c>
