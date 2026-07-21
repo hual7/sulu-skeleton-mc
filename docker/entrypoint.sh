@@ -1,6 +1,13 @@
 #!/bin/sh
 set -e
 
+# Used as the image ENTRYPOINT; the CMD ("apache2-foreground") is passed as "$@".
+# The Sulu setup runs only when we are actually about to start Apache, then the
+# script hands off with `exec "$@"` so Apache runs as PID 1 and manages its own
+# signals and graceful shutdown. `docker run <image> bash` (or the console/
+# backup helpers) skip the setup and run straight away.
+if [ "${1:-}" = "apache2-foreground" ]; then
+
 cd /var/www/html
 
 : "${SULU_ADMIN_USER:=admin}"
@@ -136,8 +143,21 @@ elif [ "$initialized" = "yes" ] && [ "${SULU_FORCE_BUILD:-}" != "true" ]; then
     exit 1
 else
     # Genuine first deploy (no durable evidence of a prior init), or forced.
+    # sulu:build publishes the homepage, which makes the Bunny CDN bundle purge
+    # the cache. A failing purge (missing/invalid BUNNY_API_KEY, or a transient
+    # Bunny API error) makes the command exit non-zero even though the site was
+    # built — the CDN purge is best-effort and must never block the first start.
+    # Only abort if the schema was genuinely not created.
     echo "Empty database detected, running sulu:build prod..."
-    console bin/adminconsole sulu:build prod --no-interaction
+    if ! console bin/adminconsole sulu:build prod --no-interaction; then
+        if db_built; then
+            echo "WARNING: sulu:build exited non-zero but the schema exists — likely" >&2
+            echo "         the CDN cache purge (check BUNNY_API_KEY). Continuing." >&2
+        else
+            echo "ERROR: sulu:build failed and no schema was created." >&2
+            exit 1
+        fi
+    fi
     fresh_db=1
 fi
 
@@ -154,24 +174,31 @@ if runtime_configured && ! runtime_exists ".initialized"; then
     fi
 fi
 
-# sulu:build prod does not create any user (only the dev target does).
-# role:create grants full permissions (127) on all security contexts;
-# it exits non-zero if the role already exists, e.g. after an aborted
-# first start, hence the || true.
-if ! console bin/adminconsole doctrine:query:sql "SELECT username FROM se_users WHERE username = '${SULU_ADMIN_USER}'" 2> /dev/null | grep -q "${SULU_ADMIN_USER}"; then
+# sulu:build prod does not create any user (only the dev target does). Creating
+# the user also triggers a CDN cache purge, so tolerate a failing purge the same
+# way as the build: verify the user exists afterwards instead of trusting the
+# exit code. role:create exits non-zero if the role already exists (|| true).
+user_exists() {
+    console bin/adminconsole doctrine:query:sql \
+        "SELECT username FROM se_users WHERE username = '${SULU_ADMIN_USER}'" 2>/dev/null \
+        | grep -q "${SULU_ADMIN_USER}"
+}
+if ! user_exists; then
     echo "Creating admin user '${SULU_ADMIN_USER}'..."
     console bin/adminconsole sulu:security:role:create Admin Sulu || true
     console bin/adminconsole sulu:security:user:create \
-        "${SULU_ADMIN_USER}" Admin Sulu "${SULU_ADMIN_EMAIL}" en Admin "${SULU_ADMIN_PASSWORD}"
+        "${SULU_ADMIN_USER}" Admin Sulu "${SULU_ADMIN_EMAIL}" en Admin "${SULU_ADMIN_PASSWORD}" || true
+    if ! user_exists; then
+        echo "ERROR: admin user '${SULU_ADMIN_USER}' could not be created." >&2
+        exit 1
+    fi
 fi
 
-#* Abhängigkeiten (falls Projekt im Image oder Volume gemountet)
-if [ -f "composer.json" ]; then
-    echo "Running composer update..."
-    composer update --no-dev --optimize-autoloader --no-interaction
-fi
+# Dependencies are installed and the autoloader is dumped at build time
+# (see Dockerfile); no composer step runs here. Running `composer update` at
+# container start would need network access to Packagist, change installed
+# versions non-deterministically, and abort the whole start on any failure.
 
-#* Datenbank-Migrationen (optional, falls DB-Zugriff nötig für Backup-Config)
 # Pre-deploy backup: capture a full restore point (DB + media) before any
 # migration runs. Skipped when the DB was just built (nothing to protect).
 # backup.sh itself is a no-op unless BACKUP_ENABLED=true, so this is safe to
@@ -185,44 +212,26 @@ echo "Running database migrations..."
 php bin/adminconsole doctrine:migrations:migrate --no-interaction --allow-no-migration
 
 #* Suche indexieren
+# Best-effort: a stale or failed search index must not block the container from
+# starting (it can be rebuilt later), and reindex can also trigger a CDN purge.
 echo "Reindex search..."
-php bin/adminconsole cmsig:seal:reindex
-
-# PHP runs in-process via mod_php, so Apache is the only web process.
-# Supervise it (and the optional cron daemon) as children and exit as
-# soon as either one dies, so Magic Containers restarts the whole
-# container instead of leaving it up in a broken state.
-apache2-foreground &
-httpd_pid=$!
+php bin/adminconsole cmsig:seal:reindex \
+    || echo "WARNING: search reindex failed (index may be stale); continuing." >&2
 
 # Periodic backup: only when explicitly enabled and credentials are present.
-# Debian cron reads /var/spool/cron/crontabs; job output is redirected to the
-# container's stdout (PID 1) so it shows up in the container logs.
-crond_pid=""
+# Debian cron daemonises into the background (no -f); its job redirects output
+# to PID 1 (Apache) so it surfaces in the container logs. Best-effort — if cron
+# dies the site stays up; backups are not worth restarting the container for.
 if [ "${BACKUP_ENABLED:-}" = "true" ] && [ -n "${RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID:-}" ]; then
     : "${BACKUP_SCHEDULE:=0 3 * * *}"
     echo "${BACKUP_SCHEDULE} /usr/local/bin/backup >/proc/1/fd/1 2>&1" | crontab -
     echo "Backup enabled: cron schedule '${BACKUP_SCHEDULE}'."
-    cron -f &
-    crond_pid=$!
+    cron
 fi
 
-stopping=0
-trap 'stopping=1; kill -TERM "$httpd_pid" ${crond_pid:+$crond_pid} 2>/dev/null || true' TERM INT QUIT
+fi  # end of the apache2-foreground setup
 
-while kill -0 "$httpd_pid" 2>/dev/null \
-      && { [ -z "$crond_pid" ] || kill -0 "$crond_pid" 2>/dev/null; }; do
-    # Interruptible sleep: wait on a background sleep so TERM/INT are handled
-    # immediately instead of after the full interval.
-    sleep 5 &
-    wait $! || true
-done
-
-kill -TERM "$httpd_pid" ${crond_pid:+$crond_pid} 2>/dev/null || true
-wait || true
-
-if [ "$stopping" = 1 ]; then
-    exit 0
-fi
-echo "ERROR: httpd or cron exited unexpectedly, stopping container." >&2
-exit 1
+# Hand the container over to Apache (mod_php) as PID 1 — it runs in the
+# foreground and manages its own signals and graceful shutdown. STOPSIGNAL is
+# the php:apache default (SIGWINCH, graceful), so no override is needed.
+exec "$@"
