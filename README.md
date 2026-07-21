@@ -60,7 +60,8 @@ Go to your GitHub profile > **Packages** > select the package > **Package settin
 4. Add the **db** container:
    - **Image**: `mariadb:10.11.14`
    - Add a **Volume** mounted at `/var/lib/mysql`
-   - Set the environment variables (Raw editor):
+   - **⚠️ Do NOT add an Endpoint to the db container.** See the security warning below — an exposed database port gets found and wiped by bots within hours.
+   - Set the environment variables (Raw editor) — **use strong, unique passwords, not these placeholders**:
 
      ```env
      MARIADB_DATABASE=sulu
@@ -99,6 +100,15 @@ The workflow automatically deploys to Magic Containers on every push to `main`. 
 
 ## Important notes for Magic Containers
 
+> ### 🔒 Never expose the database port
+>
+> **The `db` container must have NO Endpoint.** Adding an Endpoint (even "just" an internal-looking Anycast one) publishes MariaDB's port `3306` to the **public internet**. Automated bots continuously scan for open database ports and log in with default credentials (`root`/`root`, `sulu`/`sulu`, `admin`, `sa`, …). Once in, they **drop your database** — often leaving a ransom table behind. A publicly reachable DB with default passwords is wiped within hours.
+>
+> The app does **not** need a db Endpoint: containers in the same app share a localhost network, so the app reaches MariaDB internally via `DATABASE_URL=…@127.0.0.1:3306/…`. Only the `app` container gets an Endpoint (port `80`).
+>
+> If your DB is already exposed: **remove the Endpoint immediately, then rotate every credential** (`MARIADB_ROOT_PASSWORD`, `MARIADB_PASSWORD` + `DATABASE_URL`, `APP_SECRET`, `SULU_ADMIN_PASSWORD`) — assume anything with the old passwords is compromised. Check for attacker artefacts with `SHOW DATABASES;` / `SHOW TABLES FROM sulu;`.
+
+- **Never give the `db` container an Endpoint** - see the security warning above. The database must stay internal-only; only the `app` container is exposed (port `80`).
 - **`DATABASE_URL` must use `127.0.0.1`, not `localhost`** - Magic Containers share a localhost network between containers. However, PHP/PDO interprets `localhost` as a Unix socket connection, which fails. Always use `127.0.0.1` to force TCP.
 - **Don't cache config at build time** - The `Dockerfile` does not warm the Symfony cache. The cache is built at container startup via the entrypoint script so it picks up runtime environment variables.
 - **Only `var/storage`, `var/indexes` and `public/uploads` live on the volume** - The entrypoint symlinks media originals (`var/storage`, flysystem), the Loupe search index (`var/indexes`) and generated image formats (`public/uploads`) into `APP_DATA_DIR`. Without the volume, uploads and the search index are lost on every deploy.
