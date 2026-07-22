@@ -17,8 +17,11 @@ name: Nightly backup
 
 on:
   schedule:
-    # 03:00 UTC daily (GitHub cron is always UTC).
-    - cron: '0 3 * * *'
+    # 03:00 Germany time in summer (CEST, UTC+2) = 01:00 UTC. GitHub cron is
+    # UTC-only and does not follow DST, so in winter (CET, UTC+1) this runs at
+    # 02:00 Germany time. Both sit in the quiet overnight window, which is all
+    # that matters for a backup.
+    - cron: '0 1 * * *'
   workflow_dispatch: {}
 
 concurrency:

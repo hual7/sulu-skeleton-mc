@@ -170,7 +170,9 @@ simply missed whenever the pod is asleep. Instead the app exposes
 needed) — guarded by the `BACKUP_TRIGGER_TOKEN` secret via an `X-Backup-Token`
 header, and a no-op (404) when the token is unset. The
 [`Nightly backup`](.github/workflows/nightly-backup.yml) GitHub Actions workflow
-hits this endpoint on a `0 3 * * *` (UTC) schedule.
+hits this endpoint on a `0 1 * * *` (UTC) schedule — 03:00 Germany time in
+summer (CEST), 02:00 in winter (CET), since GitHub cron is UTC-only and does not
+follow DST.
 
 To enable it, in the GitHub repo under *Settings → Secrets and variables →
 Actions* set the variable `BACKUP_URL` (e.g. `https://<host>/_ops/backup`) and
