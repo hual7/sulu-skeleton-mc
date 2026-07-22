@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9c276f46025898c0271ac00dddf967e6",
+    "content-hash": "5a4e45a874e6193871c68fba655631ad",
     "packages": [
         {
             "name": "alengo/sulu-bunny-cdn-bundle",
@@ -633,16 +633,16 @@
         },
         {
             "name": "doctrine/dbal",
-            "version": "4.4.3",
+            "version": "4.4.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/doctrine/dbal.git",
-                "reference": "61e730f1658814821a85f2402c945f3883407dec"
+                "reference": "fb9e0ffe15e1590e24dc61c0c0a23f9a33ee42ce"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/doctrine/dbal/zipball/61e730f1658814821a85f2402c945f3883407dec",
-                "reference": "61e730f1658814821a85f2402c945f3883407dec",
+                "url": "https://api.github.com/repos/doctrine/dbal/zipball/fb9e0ffe15e1590e24dc61c0c0a23f9a33ee42ce",
+                "reference": "fb9e0ffe15e1590e24dc61c0c0a23f9a33ee42ce",
                 "shasum": ""
             },
             "require": {
@@ -719,7 +719,7 @@
             ],
             "support": {
                 "issues": "https://github.com/doctrine/dbal/issues",
-                "source": "https://github.com/doctrine/dbal/tree/4.4.3"
+                "source": "https://github.com/doctrine/dbal/tree/4.4.4"
             },
             "funding": [
                 {
@@ -735,7 +735,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-03-20T08:52:12+00:00"
+            "time": "2026-07-21T14:34:40+00:00"
         },
         {
             "name": "doctrine/deprecations",
@@ -3532,16 +3532,16 @@
         },
         {
             "name": "loupe/loupe",
-            "version": "0.13.22",
+            "version": "0.13.23",
             "source": {
                 "type": "git",
                 "url": "https://github.com/loupe-php/loupe.git",
-                "reference": "abe9416fbf30d178a78baa1317a5b02cb7159382"
+                "reference": "e925e4c3b457aba9405b8647aa50e8a486460f2a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/loupe-php/loupe/zipball/abe9416fbf30d178a78baa1317a5b02cb7159382",
-                "reference": "abe9416fbf30d178a78baa1317a5b02cb7159382",
+                "url": "https://api.github.com/repos/loupe-php/loupe/zipball/e925e4c3b457aba9405b8647aa50e8a486460f2a",
+                "reference": "e925e4c3b457aba9405b8647aa50e8a486460f2a",
                 "shasum": ""
             },
             "require": {
@@ -3562,13 +3562,12 @@
             },
             "require-dev": {
                 "phpbench/phpbench": "^1.2",
-                "phpstan/phpstan": "^2.1.31",
                 "phpunit/phpunit": "^10.5.58",
                 "symfony/filesystem": "^7.3.2",
                 "symfony/finder": "^7.3.5",
                 "symfony/process": "^7.3.4",
                 "symfony/var-dumper": "^7.3.5",
-                "symplify/easy-coding-standard": "^12.6.2"
+                "terminal42/code-quality-tools": "dev-main"
             },
             "type": "library",
             "autoload": {
@@ -3589,7 +3588,7 @@
             "description": "A full text search engine with tokenization, stemming, typo tolerance, filters and geo support based on only PHP and SQLite",
             "support": {
                 "issues": "https://github.com/loupe-php/loupe/issues",
-                "source": "https://github.com/loupe-php/loupe/tree/0.13.22"
+                "source": "https://github.com/loupe-php/loupe/tree/0.13.23"
             },
             "funding": [
                 {
@@ -3597,7 +3596,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-15T07:24:28+00:00"
+            "time": "2026-07-19T15:45:12+00:00"
         },
         {
             "name": "loupe/matcher",
@@ -5550,16 +5549,16 @@
         },
         {
             "name": "sulu/sulu",
-            "version": "3.0.8",
+            "version": "dev-fix/search-indexing-merges-words-across-html",
             "source": {
                 "type": "git",
-                "url": "https://github.com/sulu/sulu.git",
-                "reference": "576d465a8fb91de5bd45dd3b88834a062880e496"
+                "url": "https://github.com/hual7/sulu.git",
+                "reference": "4ce3ecae2d6387d3461ffec7134a64980aef3a12"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sulu/sulu/zipball/576d465a8fb91de5bd45dd3b88834a062880e496",
-                "reference": "576d465a8fb91de5bd45dd3b88834a062880e496",
+                "url": "https://api.github.com/repos/hual7/sulu/zipball/4ce3ecae2d6387d3461ffec7134a64980aef3a12",
+                "reference": "4ce3ecae2d6387d3461ffec7134a64980aef3a12",
                 "shasum": ""
             },
             "require": {
@@ -5741,12 +5740,12 @@
             "autoload": {
                 "psr-4": {
                     "Sulu\\": "src/Sulu/",
+                    "Sulu\\Article\\": "packages/article/src",
+                    "Sulu\\Snippet\\": "packages/snippet/src",
                     "Sulu\\Page\\": "packages/page/src",
                     "Sulu\\Route\\": "packages/route/src",
                     "Sulu\\Search\\": "packages/search/src",
-                    "Sulu\\Article\\": "packages/article/src",
                     "Sulu\\Content\\": "packages/content/src",
-                    "Sulu\\Snippet\\": "packages/snippet/src",
                     "Sulu\\CustomUrl\\": "packages/custom-url/src"
                 },
                 "exclude-from-classmap": [
@@ -5754,7 +5753,97 @@
                     "src/Sulu/Bundle/*/Tests/"
                 ]
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "App\\": "tests/",
+                    "Sulu\\Article\\Tests\\": "packages/article/tests",
+                    "Sulu\\Article\\Migrations\\": "packages/article/migrations",
+                    "Sulu\\Snippet\\Tests\\": "packages/snippet/tests",
+                    "Sulu\\Snippet\\Migrations\\": "packages/snippet/migrations",
+                    "Sulu\\Page\\Tests\\": "packages/page/tests",
+                    "Sulu\\Page\\Migrations\\": "packages/page/migrations",
+                    "Sulu\\Route\\Tests\\": "packages/route/tests",
+                    "Sulu\\Search\\Tests\\": "packages/search/tests",
+                    "Sulu\\Content\\Tests\\": "packages/content/tests",
+                    "Sulu\\CustomUrl\\Tests\\": "packages/custom-url/tests"
+                }
+            },
+            "scripts": {
+                "bootstrap-test-environment": [
+                    "@php bin/runtests --initialize --no-bundle-tests --no-component-tests"
+                ],
+                "lint": [
+                    "@lint-twig",
+                    "@lint-yaml",
+                    "@lint-container",
+                    "@lint-composer",
+                    "@lint-composer-dependencies",
+                    "@lint-doctrine",
+                    "@lint-rector",
+                    "@lint-translations",
+                    "@php-cs",
+                    "@phpstan"
+                ],
+                "test": [
+                    "Composer\\Config::disableProcessTimeout",
+                    "@php bin/runtests --all"
+                ],
+                "phpstan": [
+                    "@php bin/adminconsole cache:warmup --env=dev",
+                    "@php vendor/bin/phpstan analyse"
+                ],
+                "fix": [
+                    "@rector",
+                    "@php-cs-fix"
+                ],
+                "php-cs": [
+                    "@php vendor/bin/php-cs-fixer fix --verbose --diff --dry-run"
+                ],
+                "php-cs-fix": [
+                    "@php vendor/bin/php-cs-fixer fix"
+                ],
+                "lint-rector": [
+                    "Composer\\Config::disableProcessTimeout",
+                    "@php bin/websiteconsole cache:warmup --env=dev",
+                    "@php bin/adminconsole cache:warmup --env=dev",
+                    "@php vendor/bin/rector process --dry-run"
+                ],
+                "rector": [
+                    "Composer\\Config::disableProcessTimeout",
+                    "@php bin/websiteconsole cache:warmup --env=dev",
+                    "@php bin/adminconsole cache:warmup --env=dev",
+                    "@php vendor/bin/rector process"
+                ],
+                "lint-composer": [
+                    "@composer validate --strict"
+                ],
+                "lint-composer-dependencies": [
+                    "@php vendor/bin/composer-dependency-analyser --show-all-usages"
+                ],
+                "lint-twig": [
+                    "@php bin/adminconsole lint:twig templates"
+                ],
+                "lint-yaml": [
+                    "@php bin/adminconsole lint:yaml config"
+                ],
+                "lint-translations": [
+                    "@php bin/console debug:translation --all en --only-missing",
+                    "@php bin/console debug:translation --all de --only-missing"
+                ],
+                "lint-container": [
+                    "@php bin/adminconsole lint:container --env dev",
+                    "@php bin/websiteconsole lint:container --env dev",
+                    "@php bin/adminconsole lint:container --env test",
+                    "@php bin/websiteconsole lint:container --env test",
+                    "@php bin/adminconsole lint:container --env stage",
+                    "@php bin/websiteconsole lint:container --env stage",
+                    "@php bin/adminconsole lint:container --env prod",
+                    "@php bin/websiteconsole lint:container --env prod"
+                ],
+                "lint-doctrine": [
+                    "@php bin/adminconsole doctrine:schema:validate --skip-sync"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -5776,11 +5865,11 @@
                 "web-application"
             ],
             "support": {
-                "docs": "https://docs.sulu.io/",
                 "issues": "https://github.com/sulu/skeleton/issues",
-                "source": "https://github.com/sulu/skeleton"
+                "source": "https://github.com/sulu/skeleton",
+                "docs": "https://docs.sulu.io/"
             },
-            "time": "2026-07-17T07:01:10+00:00"
+            "time": "2026-07-22T04:45:46+00:00"
         },
         {
             "name": "symfony-cmf/routing",
@@ -15011,9 +15100,18 @@
             "time": "2026-02-23T13:21:35+00:00"
         }
     ],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "sulu/sulu",
+            "version": "dev-fix/search-indexing-merges-words-across-html",
+            "alias": "3.0.8",
+            "alias_normalized": "3.0.8.0"
+        }
+    ],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "sulu/sulu": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

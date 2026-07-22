@@ -31,7 +31,7 @@
                 "SULU_ADMIN_PASSWORD": "admin",
                 "BACKUP_ENABLED": "",
                 "BACKUP_BEFORE_MIGRATE": "true",
-                "BACKUP_SCHEDULE": "0 3 * * *",
+                "BACKUP_TRIGGER_TOKEN": "",
                 "BACKUP_RETENTION": "7",
                 "BACKUP_KEEP_DELETED": "true",
                 "BACKUP_BUCKET": "",

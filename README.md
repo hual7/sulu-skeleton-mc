@@ -128,7 +128,7 @@ container (Magic Containers dashboard or `bunny.json`):
 |---|---|
 | `BACKUP_ENABLED` | `true` turns the backup on |
 | `BACKUP_BEFORE_MIGRATE` | full backup before every migration (default `true`) |
-| `BACKUP_SCHEDULE` | cron expression for the periodic run (default `0 3 * * *`, container time / UTC) |
+| `BACKUP_TRIGGER_TOKEN` | shared secret for the `POST /_ops/backup` trigger endpoint used by the periodic backup workflow; empty = endpoint disabled (see below) |
 | `BACKUP_RETENTION` | number of DB dumps to keep (default `7`) |
 | `BACKUP_KEEP_DELETED` | keep deleted/overwritten media under `_deleted/` (default `true`) |
 | `BACKUP_BUCKET` | Bunny Storage zone / bucket name |
@@ -138,15 +138,16 @@ container (Magic Containers dashboard or `bunny.json`):
 | `RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID` | storage zone name |
 | `RCLONE_CONFIG_BUNNY_SECRET_ACCESS_KEY` | storage password |
 
-Ready-to-paste block for the Magic Containers raw env editor — replace the four
+Ready-to-paste block for the Magic Containers raw env editor — replace the five
 `<…>` placeholders (`BACKUP_BUCKET` and `RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID` are
 both the storage zone name; `<region>` is the zone's region code, e.g. `de`,
-`ny`; the secret is the zone password from Bunny → the zone → FTP & API Access):
+`ny`; the secret is the zone password from Bunny → the zone → FTP & API Access;
+`BACKUP_TRIGGER_TOKEN` is any strong random string, e.g. `openssl rand -hex 32`):
 
 ```dotenv
 BACKUP_ENABLED=true
 BACKUP_BEFORE_MIGRATE=true
-BACKUP_SCHEDULE=0 3 * * *
+BACKUP_TRIGGER_TOKEN=<random-secret>
 BACKUP_RETENTION=7
 BACKUP_KEEP_DELETED=true
 BACKUP_BUCKET=<storage-zone-name>
@@ -159,6 +160,26 @@ RCLONE_CONFIG_BUNNY_SECRET_ACCESS_KEY=<storage-zone-password>
 
 Leave `BACKUP_ENABLED` empty to load the config without activating the backup
 yet.
+
+### Periodic backup (external trigger)
+
+The nightly backup is driven from **outside** the pod, not by an in-container
+cron: Magic Containers scales idle pods to zero, so a cron tick at 03:00 is
+simply missed whenever the pod is asleep. Instead the app exposes
+`POST /_ops/backup`, which runs the backup inside the running pod (waking it if
+needed) — guarded by the `BACKUP_TRIGGER_TOKEN` secret via an `X-Backup-Token`
+header, and a no-op (404) when the token is unset. The
+[`Nightly backup`](.github/workflows/nightly-backup.yml) GitHub Actions workflow
+hits this endpoint on a `0 3 * * *` (UTC) schedule.
+
+To enable it, in the GitHub repo under *Settings → Secrets and variables →
+Actions* set the variable `BACKUP_URL` (e.g. `https://<host>/_ops/backup`) and
+the secret `BACKUP_TRIGGER_TOKEN` (matching the app env var above). Trigger a
+run manually any time with the workflow's *Run workflow* button, or directly:
+
+```bash
+curl -sS -X POST -H "X-Backup-Token: <token>" https://<host>/_ops/backup
+```
 
 Everything is written under a `_backup/` prefix in the zone, so the storage zone
 can be shared with other content (e.g. CDN media) without colliding. What is

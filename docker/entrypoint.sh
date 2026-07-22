@@ -218,16 +218,11 @@ echo "Reindex search..."
 php bin/adminconsole cmsig:seal:reindex \
     || echo "WARNING: search reindex failed (index may be stale); continuing." >&2
 
-# Periodic backup: only when explicitly enabled and credentials are present.
-# Debian cron daemonises into the background (no -f); its job redirects output
-# to PID 1 (Apache) so it surfaces in the container logs. Best-effort — if cron
-# dies the site stays up; backups are not worth restarting the container for.
-if [ "${BACKUP_ENABLED:-}" = "true" ] && [ -n "${RCLONE_CONFIG_BUNNY_ACCESS_KEY_ID:-}" ]; then
-    : "${BACKUP_SCHEDULE:=0 3 * * *}"
-    echo "${BACKUP_SCHEDULE} /usr/local/bin/backup >/proc/1/fd/1 2>&1" | crontab -
-    echo "Backup enabled: cron schedule '${BACKUP_SCHEDULE}'."
-    cron
-fi
+# Periodic backups are driven externally by the "Nightly backup" GitHub Actions
+# workflow, which POSTs /_ops/backup to run backup.sh inside the running pod.
+# An in-container cron is unreliable here because Magic Containers scales idle
+# pods to zero and simply misses the tick. The pre-deploy backup above
+# (BACKUP_BEFORE_MIGRATE) and the /_ops/backup endpoint remain the backup paths.
 
 fi  # end of the apache2-foreground setup
 
