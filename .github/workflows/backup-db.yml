@@ -1,15 +1,18 @@
-name: Nightly backup
+name: Backup db
 
-# Bunny Magic Containers scales idle pods to zero, so any cron inside the
-# container is missed whenever the pod is asleep at the scheduled minute. This
-# workflow drives the backup from the outside instead: it POSTs to the app's
-# /_ops/backup endpoint, which runs docker/backup.sh inside the running pod
-# (waking it if needed) without a redeploy.
+# Scheduled database backup. Bunny Magic Containers scales idle pods to zero, so
+# any cron inside the container is missed whenever the pod is asleep at the
+# scheduled minute. This workflow drives the backup from the outside instead: it
+# POSTs to the app's /_ops/backup-db endpoint, which runs `backup db` inside the
+# running pod (waking it if needed) without a redeploy. Media is not included —
+# the separate "Backup media" workflow covers that.
 #
 # Required repository configuration (Settings -> Secrets and variables -> Actions):
 #   - Variable BACKUP_URL           e.g. https://sulu.alengo.io/_ops/backup
 #   - Secret   BACKUP_TRIGGER_TOKEN  the same value set as the app's
 #                                    BACKUP_TRIGGER_TOKEN env var in Magic Containers
+# The DB endpoint reuses BACKUP_URL (swapping /_ops/backup for /_ops/backup-db);
+# set the variable BACKUP_DB_URL to override explicitly.
 #
 # Note: scheduled runs only fire from the default branch, GitHub may delay the
 # tick by a few minutes under load, and schedules are auto-disabled after ~60
@@ -25,48 +28,52 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: nightly-backup
+  group: backup-db
   cancel-in-progress: false
 
 jobs:
   trigger:
-    name: Trigger in-pod backup
+    name: Trigger in-pod database backup
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       BACKUP_URL: ${{ vars.BACKUP_URL }}
+      BACKUP_DB_URL: ${{ vars.BACKUP_DB_URL }}
       BACKUP_TRIGGER_TOKEN: ${{ secrets.BACKUP_TRIGGER_TOKEN }}
     steps:
-      - name: POST backup trigger
+      - name: POST db-backup trigger
         run: |
           set -euo pipefail
 
-          if [ -z "${BACKUP_URL:-}" ]; then
-            echo "::error::Repository variable BACKUP_URL is not set (e.g. https://sulu.alengo.io/_ops/backup)"
-            exit 1
+          url="${BACKUP_DB_URL:-}"
+          if [ -z "${url}" ]; then
+            if [ -z "${BACKUP_URL:-}" ]; then
+              echo "::error::Set repository variable BACKUP_DB_URL (e.g. https://sulu.alengo.io/_ops/backup-db) or BACKUP_URL"
+              exit 1
+            fi
+            url="$(printf '%s' "${BACKUP_URL}" | sed 's#/_ops/backup#/_ops/backup-db#')"
           fi
           if [ -z "${BACKUP_TRIGGER_TOKEN:-}" ]; then
             echo "::error::Repository secret BACKUP_TRIGGER_TOKEN is not set"
             exit 1
           fi
 
-          echo "POST ${BACKUP_URL}"
+          echo "POST ${url}"
           # -f is intentionally omitted so we can print the body on non-2xx too.
           # --retry covers a cold-start pod that is still waking on the first hit.
-          # --max-time is generous enough for a DB dump plus the media sync.
           http_code=$(curl -sS -o response.log -w '%{http_code}' \
             -X POST \
             --retry 3 --retry-delay 30 --retry-all-errors \
             --max-time 600 \
             -H "X-Backup-Token: ${BACKUP_TRIGGER_TOKEN}" \
-            "${BACKUP_URL}") || true
+            "${url}") || true
 
-          echo "----- backup output (HTTP ${http_code}) -----"
+          echo "----- db backup output (HTTP ${http_code}) -----"
           cat response.log 2>/dev/null || true
-          echo "---------------------------------------------"
+          echo "------------------------------------------------"
 
           if [ "${http_code}" != "200" ]; then
-            echo "::error::Backup trigger failed (HTTP ${http_code})"
+            echo "::error::Database backup failed (HTTP ${http_code})"
             exit 1
           fi
-          echo "Backup completed successfully."
+          echo "Database backup completed successfully."

@@ -8,6 +8,16 @@ set -u
 log() { echo "[backup $(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 fail() { log "ERROR: $*"; }
 
+# Scope (optional first argument): "full" (default) backs up database + media;
+# "db" runs only the database dump + retention; "media" runs only the media sync.
+# The db/media scopes back the scheduled "Backup db" and "Backup media"
+# workflows respectively.
+SCOPE="${1:-full}"
+case "$SCOPE" in
+    full | db | media) ;;
+    *) fail "unknown scope '$SCOPE' (expected 'full', 'db' or 'media')."; exit 2 ;;
+esac
+
 : "${BACKUP_ENABLED:=}"
 if [ "$BACKUP_ENABLED" != "true" ]; then
     log "BACKUP_ENABLED is not 'true', skipping."
@@ -120,8 +130,21 @@ media_sync() {
     done
 }
 
-db_dump
-db_retention
-media_sync
-log "backup run complete."
+case "$SCOPE" in
+    db)
+        db_dump
+        db_retention
+        log "database backup complete."
+        ;;
+    media)
+        media_sync
+        log "media sync complete."
+        ;;
+    *)
+        db_dump
+        db_retention
+        media_sync
+        log "backup run complete."
+        ;;
+esac
 exit 0

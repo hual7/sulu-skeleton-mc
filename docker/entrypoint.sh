@@ -218,11 +218,12 @@ echo "Reindex search..."
 php bin/adminconsole cmsig:seal:reindex \
     || echo "WARNING: search reindex failed (index may be stale); continuing." >&2
 
-# Periodic backups are driven externally by the "Nightly backup" GitHub Actions
-# workflow, which POSTs /_ops/backup to run backup.sh inside the running pod.
-# An in-container cron is unreliable here because Magic Containers scales idle
-# pods to zero and simply misses the tick. The pre-deploy backup above
-# (BACKUP_BEFORE_MIGRATE) and the /_ops/backup endpoint remain the backup paths.
+# Periodic backups are driven externally by the scheduled "Backup db" and
+# "Backup media" GitHub Actions workflows, which POST to the /_ops/*
+# endpoints to run backup.sh inside the running pod. An in-container cron is
+# unreliable here because Magic Containers scales idle pods to zero and simply
+# misses the tick. The pre-deploy backup above (BACKUP_BEFORE_MIGRATE) and the
+# /_ops/backup* endpoints remain the backup paths.
 
 fi  # end of the apache2-foreground setup
 

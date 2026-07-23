@@ -161,26 +161,47 @@ RCLONE_CONFIG_BUNNY_SECRET_ACCESS_KEY=<storage-zone-password>
 Leave `BACKUP_ENABLED` empty to load the config without activating the backup
 yet.
 
-### Periodic backup (external trigger)
+### Scheduled database backup (external trigger)
 
-The nightly backup is driven from **outside** the pod, not by an in-container
-cron: Magic Containers scales idle pods to zero, so a cron tick at 03:00 is
+The database backup is driven from **outside** the pod, not by an in-container
+cron: Magic Containers scales idle pods to zero, so a cron tick at night is
 simply missed whenever the pod is asleep. Instead the app exposes
-`POST /_ops/backup`, which runs the backup inside the running pod (waking it if
-needed) — guarded by the `BACKUP_TRIGGER_TOKEN` secret via an `X-Backup-Token`
+`POST /_ops/backup-db`, which runs `backup db` inside the running pod (waking it
+if needed) — guarded by the `BACKUP_TRIGGER_TOKEN` secret via an `X-Backup-Token`
 header, and a no-op (404) when the token is unset. The
-[`Nightly backup`](.github/workflows/nightly-backup.yml) GitHub Actions workflow
-hits this endpoint on a `0 1 * * *` (UTC) schedule — 03:00 Germany time in
-summer (CEST), 02:00 in winter (CET), since GitHub cron is UTC-only and does not
-follow DST.
+[`Backup db`](.github/workflows/backup-db.yml) GitHub Actions workflow hits this
+endpoint on a `0 1 * * *` (UTC) schedule — 03:00 Germany time in summer (CEST),
+02:00 in winter (CET), since GitHub cron is UTC-only and does not follow DST.
+
+This scheduled run covers the **database only**; media is backed up by the
+separate [Media backup](#media-backup) workflow below, and every deploy still
+takes a full DB + media restore point (`BACKUP_BEFORE_MIGRATE`). The full
+`POST /_ops/backup` endpoint (DB + media in one call) remains available too.
 
 To enable it, in the GitHub repo under *Settings → Secrets and variables →
 Actions* set the variable `BACKUP_URL` (e.g. `https://<host>/_ops/backup`) and
-the secret `BACKUP_TRIGGER_TOKEN` (matching the app env var above). Trigger a
-run manually any time with the workflow's *Run workflow* button, or directly:
+the secret `BACKUP_TRIGGER_TOKEN` (matching the app env var above); the DB
+endpoint is derived from `BACKUP_URL` (or set `BACKUP_DB_URL` to override).
+Trigger a run manually any time with the workflow's *Run workflow* button, or
+directly:
 
 ```bash
-curl -sS -X POST -H "X-Backup-Token: <token>" https://<host>/_ops/backup
+curl -sS -X POST -H "X-Backup-Token: <token>" https://<host>/_ops/backup-db
+```
+
+### Media backup
+
+To push only the media folders (`var/storage` + `public/uploads`) to the storage
+zone without a database dump, POST to `/_ops/backup-media` — same token guard as
+above, deletion behaviour follows `BACKUP_KEEP_DELETED`. The
+[`Backup media`](.github/workflows/backup-media.yml) GitHub Actions workflow runs
+this on a `0 2 * * *` (UTC) schedule — 04:00 Germany time in summer (CEST), one
+hour after the database backup — and can also be triggered manually. It reuses
+the `BACKUP_URL` variable (swapping `/_ops/backup` for `/_ops/backup-media`) or
+an explicit `BACKUP_MEDIA_URL`.
+
+```bash
+curl -sS -X POST -H "X-Backup-Token: <token>" https://<host>/_ops/backup-media
 ```
 
 Everything is written under a `_backup/` prefix in the zone, so the storage zone

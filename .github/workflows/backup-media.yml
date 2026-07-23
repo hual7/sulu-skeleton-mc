@@ -1,0 +1,73 @@
+name: Backup media
+
+# Push the media folders (var/storage + public/uploads) from the running pod up
+# to the Bunny storage zone, without a database dump. Same in-pod mechanism as
+# the backup: it POSTs to /_ops/backup-media, which runs `backup media` inside
+# the pod (the only place the node-local media volume is reachable). Deletion
+# behaviour matches the backup (BACKUP_KEEP_DELETED).
+#
+# Runs daily on a schedule and can also be triggered manually via "Run workflow".
+#
+# Configuration (Settings -> Secrets and variables -> Actions):
+#   - Secret   BACKUP_TRIGGER_TOKEN  same value as the app's env var
+#   - URL: reuses the variable BACKUP_URL and swaps /_ops/backup for
+#     /_ops/backup-media; set the variable BACKUP_MEDIA_URL to override explicitly.
+
+on:
+  schedule:
+    # 04:00 Germany time in summer (CEST, UTC+2) = 02:00 UTC — one hour after the
+    # "Backup db" run (03:00 CEST). GitHub cron is UTC-only and does not follow
+    # DST, so in winter (CET, UTC+1) this runs at 03:00 Germany time.
+    - cron: '0 2 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: backup-media
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    name: Trigger in-pod media backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BACKUP_URL: ${{ vars.BACKUP_URL }}
+      BACKUP_MEDIA_URL: ${{ vars.BACKUP_MEDIA_URL }}
+      BACKUP_TRIGGER_TOKEN: ${{ secrets.BACKUP_TRIGGER_TOKEN }}
+    steps:
+      - name: POST media-backup trigger
+        run: |
+          set -euo pipefail
+
+          url="${BACKUP_MEDIA_URL:-}"
+          if [ -z "${url}" ]; then
+            if [ -z "${BACKUP_URL:-}" ]; then
+              echo "::error::Set repository variable BACKUP_MEDIA_URL (e.g. https://sulu.alengo.io/_ops/backup-media) or BACKUP_URL"
+              exit 1
+            fi
+            url="$(printf '%s' "${BACKUP_URL}" | sed 's#/_ops/backup#/_ops/backup-media#')"
+          fi
+          if [ -z "${BACKUP_TRIGGER_TOKEN:-}" ]; then
+            echo "::error::Repository secret BACKUP_TRIGGER_TOKEN is not set"
+            exit 1
+          fi
+
+          echo "POST ${url}"
+          # --retry covers a cold-start pod still waking on the first hit;
+          # --max-time is generous enough for a large media sync.
+          http_code=$(curl -sS -o response.log -w '%{http_code}' \
+            -X POST \
+            --retry 3 --retry-delay 30 --retry-all-errors \
+            --max-time 900 \
+            -H "X-Backup-Token: ${BACKUP_TRIGGER_TOKEN}" \
+            "${url}") || true
+
+          echo "----- media backup output (HTTP ${http_code}) -----"
+          cat response.log 2>/dev/null || true
+          echo "---------------------------------------------------"
+
+          if [ "${http_code}" != "200" ]; then
+            echo "::error::Media backup failed (HTTP ${http_code})"
+            exit 1
+          fi
+          echo "Media backup completed successfully."
